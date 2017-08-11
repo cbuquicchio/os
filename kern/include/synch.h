@@ -71,12 +71,15 @@ void V(struct semaphore *);
  *
  * The name field is for easier debugging. A copy of the name is
  * (should be) made internally.
+ *
+ * lk_owner - used to identify which thread is holding the lock
  */
 struct lock {
         char *lk_name;
         HANGMAN_LOCKABLE(lk_hangman);   /* Deadlock detector hook. */
-        // add what you need here
-        // (don't forget to mark things volatile as needed)
+        struct wchan * lk_wchan;
+        struct spinlock lk_spinlk;
+        volatile struct thread *lk_owner;
 };
 
 struct lock *lock_create(const char *name);
@@ -114,8 +117,8 @@ bool lock_do_i_hold(struct lock *);
 
 struct cv {
         char *cv_name;
-        // add what you need here
-        // (don't forget to mark things volatile as needed)
+	struct wchan *cv_wchan;
+	struct spinlock cv_spinlk;
 };
 
 struct cv *cv_create(const char *name);
@@ -150,18 +153,21 @@ void cv_broadcast(struct cv *cv, struct lock *lock);
 
 struct rwlock {
         char *rwlock_name;
-        // add what you need here
-        // (don't forget to mark things volatile as needed)
+	struct wchan *rw_wchan;
+	struct spinlock rw_spinlk;
+	volatile unsigned int reader_count;
+	volatile unsigned int is_writing;
+	volatile unsigned int writer_waiting_count;
 };
 
-struct rwlock * rwlock_create(const char *);
+struct rwlock * rwlock_create(const char *name);
 void rwlock_destroy(struct rwlock *);
 
 /*
  * Operations:
  *    rwlock_acquire_read  - Get the lock for reading. Multiple threads can
  *                          hold the lock for reading at the same time.
- *    rwlock_release_read  - Free the lock. 
+ *    rwlock_release_read  - Free the lock.
  *    rwlock_acquire_write - Get the lock for writing. Only one thread can
  *                           hold the write lock at one time.
  *    rwlock_release_write - Free the write lock.

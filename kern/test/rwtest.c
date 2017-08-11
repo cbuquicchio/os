@@ -16,33 +16,83 @@
  * Use these stubs to test your reader-writer locks.
  */
 
-int rwtest(int nargs, char **args) {
+/*
+ * This tests creating and destroying a reader-writer lock
+ */
+int
+rwtest(int nargs, char **args)
+{
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt1 unimplemented\n");
-	success(TEST161_FAIL, SECRET, "rwt1");
+	struct rwlock* lock = rwlock_create("testlock");
+	int res = TEST161_SUCCESS;
+
+	if (lock == NULL) {
+		res = TEST161_FAIL;
+	}
+
+	if (lock->reader_count != 0 || lock->writer_waiting_count != 0 ||
+			lock->is_writing != 0) {
+		res = TEST161_FAIL;
+	}
+
+	// If we get passed this point without an fatal error or failed
+	// assertion we can consider the test a success
+	rwlock_destroy(lock);
+
+	success(res, SECRET, "rwt1");
 
 	return 0;
 }
 
+/*
+ * This tests destroying a reader-writer lock
+ */
 int rwtest2(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt2 unimplemented\n");
-	success(TEST161_FAIL, SECRET, "rwt2");
+	struct rwlock *lock = rwlock_create("testlock");
+	int res = TEST161_SUCCESS;
+
+	rwlock_acquire_read(lock);
+
+	if (lock->reader_count != 1) {
+		res = TEST161_FAIL;
+	}
+
+	rwlock_destroy(lock);
+
+	success(res, SECRET, "rwt2");
 
 	return 0;
 }
 
+/*
+ * This tests rwlock_release_read
+ */
 int rwtest3(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt3 unimplemented\n");
-	success(TEST161_FAIL, SECRET, "rwt3");
+	const int num_iters = 10;
+	struct rwlock *lock = rwlock_create("testlock");
+	int res = TEST161_SUCCESS;
 
+	lock->reader_count = num_iters;
+
+	for (int i = 0; i < num_iters; i++) {
+		rwlock_release_read(lock);
+	}
+
+	if (lock->reader_count != 0) {
+		res = TEST161_FAIL;
+	}
+
+	rwlock_destroy(lock);
+
+	success(res, SECRET, "rwt3");
 	return 0;
 }
 
@@ -50,7 +100,6 @@ int rwtest4(int nargs, char **args) {
 	(void)nargs;
 	(void)args;
 
-	kprintf_n("rwt4 unimplemented\n");
 	success(TEST161_FAIL, SECRET, "rwt4");
 
 	return 0;
