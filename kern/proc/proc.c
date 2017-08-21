@@ -48,6 +48,7 @@
 #include <current.h>
 #include <addrspace.h>
 #include <vnode.h>
+#include <filetable.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -81,6 +82,9 @@ proc_create(const char *name)
 
 	/* VFS fields */
 	proc->p_cwd = NULL;
+
+	/* File Table */
+	proc->ft = NULL;
 
 	return proc;
 }
@@ -197,6 +201,17 @@ proc_create_runprogram(const char *name)
 
 	newproc = proc_create(name);
 	if (newproc == NULL) {
+		return NULL;
+	}
+
+	/*
+	 * The file table is only needed for user proc's that is why  we only
+	 * create file tables in this function instead of proc_create or
+	 * proc_bootstrap
+	 */
+	newproc->ft = filetable_create();
+	if (newproc->ft == NULL) {
+		proc_destroy(newproc);
 		return NULL;
 	}
 
