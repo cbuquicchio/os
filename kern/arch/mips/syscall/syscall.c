@@ -36,6 +36,15 @@
 #include <current.h>
 #include <syscall.h>
 
+int sys_write(int fd, userptr_t buf, size_t buflen);
+
+int sys_write(int fd, userptr_t bf, size_t buflen)
+{
+	(void)fd;
+	(void)bf;
+	(void)buflen;
+	return 0;
+}
 
 /*
  * System call dispatcher.
@@ -100,21 +109,23 @@ syscall(struct trapframe *tf)
 	retval = 0;
 
 	switch (callno) {
-	    case SYS_reboot:
-		err = sys_reboot(tf->tf_a0);
-		break;
+		case SYS_reboot:
+			err = sys_reboot(tf->tf_a0);
+			break;
 
-	    case SYS___time:
-		err = sys___time((userptr_t)tf->tf_a0,
-				 (userptr_t)tf->tf_a1);
-		break;
+		case SYS___time:
+			err = sys___time((userptr_t)tf->tf_a0,
+			(userptr_t)tf->tf_a1);
+			break;
 
-	    /* Add stuff here */
+		case SYS_open:
+			err = sys_open((userptr_t)tf->tf_a0, (int)tf->tf_a1);
+			break;
 
-	    default:
-		kprintf("Unknown syscall %d\n", callno);
-		err = ENOSYS;
-		break;
+		default:
+			kprintf("Unknown syscall %d\n", callno);
+			err = ENOSYS;
+			break;
 	}
 
 
