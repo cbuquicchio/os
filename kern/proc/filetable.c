@@ -7,6 +7,22 @@
 
 #define TABLE_SIZE 10
 
+struct filehandle *
+file_open(char *filename, int flags)
+{
+	KASSERT(filename != NULL);
+
+	struct filehandle *fh;
+
+	fh = kmalloc(sizeof(*fh));
+	if (fh == NULL) {
+		return NULL;
+	}
+
+	(void)flags;
+
+	return fh;
+}
 
 struct filetable *
 filetable_create()

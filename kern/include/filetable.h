@@ -13,6 +13,9 @@ struct filetable {
 	struct lock *lk;
 };
 
+struct filehandle *
+file_open(char *filename, int flags);
+
 struct filetable *
 filetable_create(void);
 

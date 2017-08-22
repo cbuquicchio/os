@@ -71,8 +71,7 @@ struct proc {
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
 
-	/* File Table */
-	struct filetable *ft;
+	struct filetable *p_filetable;  /* File Table */
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
