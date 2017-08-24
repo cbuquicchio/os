@@ -36,16 +36,6 @@
 #include <current.h>
 #include <syscall.h>
 
-int sys_write(int fd, userptr_t buf, size_t buflen);
-
-int sys_write(int fd, userptr_t bf, size_t buflen)
-{
-	(void)fd;
-	(void)bf;
-	(void)buflen;
-	return 0;
-}
-
 /*
  * System call dispatcher.
  *
@@ -84,8 +74,7 @@ int sys_write(int fd, userptr_t bf, size_t buflen)
  * stack, starting at sp+16 to skip over the slots for the
  * registerized values, with copyin().
  */
-void
-syscall(struct trapframe *tf)
+void syscall(struct trapframe *tf)
 {
 	int callno;
 	int32_t retval;
@@ -109,25 +98,28 @@ syscall(struct trapframe *tf)
 	retval = 0;
 
 	switch (callno) {
-		case SYS_reboot:
-			err = sys_reboot(tf->tf_a0);
-			break;
+	case SYS_reboot:
+		err = sys_reboot(tf->tf_a0);
+		break;
 
-		case SYS___time:
-			err = sys___time((userptr_t)tf->tf_a0,
-			(userptr_t)tf->tf_a1);
-			break;
+	case SYS___time:
+		err = sys___time((userptr_t) tf->tf_a0, (userptr_t) tf->tf_a1);
+		break;
 
-		case SYS_open:
-			err = sys_open((userptr_t)tf->tf_a0, (int)tf->tf_a1);
-			break;
+	case SYS_open:
+		err = sys_open((userptr_t) tf->tf_a0, (int)tf->tf_a1, &retval);
+		break;
 
-		default:
-			kprintf("Unknown syscall %d\n", callno);
-			err = ENOSYS;
-			break;
+	case SYS_write:
+		err = sys_write(tf->tf_a0, (userptr_t) tf->tf_a1,
+				tf->tf_a2, &retval);
+		break;
+
+	default:
+		kprintf("Unknown syscall %d\n", callno);
+		err = ENOSYS;
+		break;
 	}
-
 
 	if (err) {
 		/*
@@ -136,12 +128,11 @@ syscall(struct trapframe *tf)
 		 * code in errno.
 		 */
 		tf->tf_v0 = err;
-		tf->tf_a3 = 1;      /* signal an error */
-	}
-	else {
+		tf->tf_a3 = 1;	/* signal an error */
+	} else {
 		/* Success. */
 		tf->tf_v0 = retval;
-		tf->tf_a3 = 0;      /* signal no error */
+		tf->tf_a3 = 0;	/* signal no error */
 	}
 
 	/*
@@ -165,8 +156,7 @@ syscall(struct trapframe *tf)
  *
  * Thus, you can trash it and do things another way if you prefer.
  */
-void
-enter_forked_process(struct trapframe *tf)
+void enter_forked_process(struct trapframe *tf)
 {
 	(void)tf;
 }

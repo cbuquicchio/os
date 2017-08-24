@@ -3,8 +3,8 @@
 
 #include <types.h>
 
-struct lock;  /* sleeplock defined in synch.h */
-struct vnode; /* file object defined in vnode.h */
+struct lock;			/* Sleeplock defined in synch.h */
+struct vnode;			/* file object defined in vnode.h */
 
 /*
  * The File Handle is the intermediary between a file descriptor(the index of
@@ -14,14 +14,16 @@ struct vnode; /* file object defined in vnode.h */
  */
 
 struct filehandle {
-	struct vnode *vn;  /* the underlying file object */
-	off_t offset;      /* the offset in a file */
-	uint32_t refcount; /* the number of threads with this file open */
+	struct vnode *vn;	/* The underlying file object */
+	struct lock *fh_lk;	/* Sleep Lock */
+	off_t offset;		/* The offset in a file */
+	uint32_t refcount;	/* Number of threads with this file open */
+	int flag;
 };
 
 struct filetable {
-	struct filehandle **files;
-	struct lock *lk;
+	struct filehandle **files;	/* Open files in the file table */
+	struct lock *lk;	/* Sleep lock */
 };
 
 /*
@@ -31,8 +33,12 @@ struct filetable {
  *             make a call to the VFS layer to open the file and return a
  *             pointer to the file handle.
  */
-struct filehandle *
-file_open(char *filename, int flags);
+
+struct filehandle *file_open(char *filename, int flags);
+
+struct filehandle *filehandle_create(int flag);
+
+void filehandle_destroy(struct filehandle *fh);
 
 /*
  * File Table operations
@@ -47,16 +53,13 @@ file_open(char *filename, int flags);
  * filetable_lookup  - Given file desriptor return its correspond file handle.
  * filetable_destroy - Free the resources used by the file table.
  */
-struct filetable *
-filetable_create(void);
 
-int
-filetable_insert(struct filehandle *file, struct filetable *table);
+struct filetable *filetable_create(void);
 
-struct filehandle *
-filetable_lookup(int fd, struct filetable *table);
+int filetable_insert(struct filehandle *file, struct filetable *table);
 
-void
-filetable_destroy(struct filetable *table);
+struct filehandle *filetable_lookup(int fd, struct filetable *table);
 
-#endif /* _FILETABLE_H_ */
+void filetable_destroy(struct filetable *table);
+
+#endif				/* _FILETABLE_H_ */
