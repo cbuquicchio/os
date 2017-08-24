@@ -43,6 +43,7 @@ void filehandle_destroy(struct filehandle *fh)
 
 struct filetable *filetable_create()
 {
+	int res;
 	struct filetable *table;
 
 	table = kmalloc(sizeof(*table));
@@ -61,8 +62,6 @@ struct filetable *filetable_create()
 	for (i = 0; i < OPEN_MAX; i++) {
 		table->files[i] = NULL;
 	}
-
-	char con[] = "con:";	/* Filename for the console */
 
 	table->files[0] = filehandle_create(O_RDONLY);	/* STDIN */
 	if (table->files[0] == NULL) {
@@ -86,11 +85,36 @@ struct filetable *filetable_create()
 		kfree(table);
 	}
 
-	/* These string copies might need to be destroyed after */
-	/* We also need to check for error that return */
-	vfs_open(kstrdup(con), O_RDONLY, 0, &table->files[0]->vn);
-	vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[1]->vn);
-	vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[2]->vn);
+	char con[] = "con:";
+	char *conpath;
+
+	/*
+	 * Each call to vfs_open destroys the string conpath that is passed in.
+	 * That is why we have to continue to free and realloc space for it;
+	 * We also assert instead of gracefull failing if we are unable to open
+	 * the console device ready/writing. This is because each process
+	 * assumes that those file handles are there and something is very
+	 * wrong if we are unable to opent them up.
+	 */
+
+	conpath = kstrdup(con);
+	KASSERT(conpath != NULL);
+	res = vfs_open(conpath, O_RDONLY, 0, &table->files[0]->vn);
+	KASSERT(res == 0);
+	kfree(conpath);
+
+
+	conpath = kstrdup(con);
+	KASSERT(conpath != NULL);
+	res = vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[1]->vn);
+	KASSERT(res == 0);
+	kfree(conpath);
+
+	conpath = kstrdup(con);
+	KASSERT(conpath != NULL);
+	res = vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[2]->vn);
+	KASSERT(res == 0);
+	kfree(conpath);
 
 	table->lk = lock_create("file table");
 
