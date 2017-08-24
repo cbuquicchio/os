@@ -10,6 +10,8 @@
 #include <vnode.h>
 #include <kern/fcntl.h>
 #include <kern/errno.h>
+#include <kern/seek.h>		/* Contains the codes for lseek whence */
+#include <kern/stat.h>
 
 int sys_open(userptr_t filename, int flags, int *retval)
 {
@@ -120,7 +122,7 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 	}
 
 	*retval = nbytes - block.uio_resid;
-	fh->offset += (off_t)(*retval);
+	fh->offset += (off_t) (*retval);
 
 	lock_release(fh->fh_lk);
 	kfree(kbuf);
@@ -186,6 +188,77 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 
 	lock_release(fh->fh_lk);
 	kfree(kbuf);
+
+	return 0;
+}
+
+int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
+	      int *retval_lo)
+{
+	KASSERT(curthread->t_filetable != NULL);
+
+	int err;
+	off_t newpos;
+	struct filehandle *fh;
+	struct stat vnstats;
+	int kwhence = 0;
+
+	if (fd < 0 || fd >= OPEN_MAX)
+		return EBADF;
+
+	err = copyin(whence, &kwhence, sizeof(int32_t));
+	if (err)
+		return err;
+
+	fh = filetable_lookup(fd, curthread->t_filetable);
+	if (fh == NULL)
+		return EBADF;
+
+	lock_acquire(fh->fh_lk);
+
+	if (!VOP_ISSEEKABLE(fh->vn)) {
+		lock_release(fh->fh_lk);
+		return ESPIPE;
+	}
+
+	err = VOP_STAT(fh->vn, &vnstats);
+	if (err) {
+		lock_release(fh->fh_lk);
+		return err;
+	}
+
+	/*
+	 * This checks for both valid position as well as a valid value for
+	 * whence. The default case is the case where whence is not a valid
+	 * option.
+	 */
+	switch (kwhence) {
+	case SEEK_SET:
+		newpos = pos;
+		break;
+
+	case SEEK_CUR:
+		newpos = pos + fh->offset;
+		break;
+
+	case SEEK_END:
+		newpos = pos + vnstats.st_size;
+		break;
+
+	default:
+		newpos = -1;
+	}
+
+	if (newpos < 0) {
+		lock_release(fh->fh_lk);
+		return EINVAL;
+	}
+
+	fh->offset = newpos;
+	lock_release(fh->fh_lk);
+
+	*retval_lo = (uint32_t) (newpos & 0xFFFFFFFF);	/* low bits */
+	*retval_hi = (uint32_t) (newpos >> 32);	/* high bits */
 
 	return 0;
 }
