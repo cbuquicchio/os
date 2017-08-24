@@ -23,21 +23,17 @@ struct filehandle {
 
 struct filetable {
 	struct filehandle **files;	/* Open files in the file table */
-	struct lock *lk;	/* Sleep lock */
+	struct lock *lk;		/* Sleep lock */
 };
 
 /*
  * File Handle operations
  *
- * file_open - Given and pathname pointing to a file or device (file-like obj)
- *             make a call to the VFS layer to open the file and return a
- *             pointer to the file handle.
+ * filehandle_create  - Create a file handle struct with the supplied flag.
+ * filehandle_destroy - Destroys the given filehandle.
  */
 
-struct filehandle *file_open(char *filename, int flags);
-
 struct filehandle *filehandle_create(int flag);
-
 void filehandle_destroy(struct filehandle *fh);
 
 /*
@@ -55,11 +51,8 @@ void filehandle_destroy(struct filehandle *fh);
  */
 
 struct filetable *filetable_create(void);
-
 int filetable_insert(struct filehandle *file, struct filetable *table);
-
 struct filehandle *filetable_lookup(int fd, struct filetable *table);
-
 void filetable_destroy(struct filetable *table);
 
 #endif				/* _FILETABLE_H_ */
