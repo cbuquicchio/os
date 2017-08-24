@@ -58,6 +58,76 @@ int sys_open(userptr_t filename, int flags, int *retval)
 	return 0;
 }
 
+static int readwrite_check(int fd, userptr_t buf)
+{
+	int res = 0;
+
+	if (fd < 0 || fd >= OPEN_MAX)	/* Invaid file descriptor */
+		res = EBADF;
+
+	if (buf == NULL)	/* Invalid userspace address */
+		res = EFAULT;
+
+	return res;
+}
+
+int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
+{
+	KASSERT(curthread->t_filetable != NULL);
+
+	int res;
+	void *kbuf;
+	struct filehandle *fh;
+	struct uio block;
+	struct iovec vec;
+
+	res = readwrite_check(fd, buf);
+	if (res)
+		return res;
+
+	fh = filetable_lookup(fd, curthread->t_filetable);
+
+	if (fh == NULL)		/* File not found in table */
+		return EBADF;
+
+	lock_acquire(fh->fh_lk);
+	if (fh->flag == O_WRONLY) {	/* Cannot read, file is writeonly */
+		lock_release(fh->fh_lk);
+		return EBADF;
+	}
+
+	kbuf = kmalloc(nbytes);
+	if (kbuf == NULL) {
+		lock_release(fh->fh_lk);
+		return ENOMEM;
+	}
+
+	/* Init uio memory block abstration */
+	uio_kinit(&vec, &block, kbuf, nbytes, fh->offset, UIO_READ);
+
+	res = VOP_READ(fh->vn, &block);
+	if (res) {
+		lock_release(fh->fh_lk);
+		kfree(kbuf);
+		return res;
+	}
+
+	res = copyout(kbuf, buf, nbytes);
+	if (res) {
+		lock_release(fh->fh_lk);
+		kfree(kbuf);
+		return res;
+	}
+
+	*retval = nbytes - block.uio_resid;
+	fh->offset += (off_t)(*retval);
+
+	lock_release(fh->fh_lk);
+	kfree(kbuf);
+
+	return 0;
+}
+
 int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 {
 	KASSERT(curthread->t_filetable != NULL);
@@ -68,13 +138,9 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 	struct uio block;	/* Memory block abstraction */
 	struct iovec vec;
 
-	/* Check if file descriptor is valid */
-	if (fd < 0 || fd >= OPEN_MAX)
-		return EBADF;
-
-	/* Check for valid usersapce address */
-	if (buf == NULL)
-		return EFAULT;
+	res = readwrite_check(fd, buf);
+	if (res)
+		return res;
 
 	fh = filetable_lookup(fd, curthread->t_filetable);
 
