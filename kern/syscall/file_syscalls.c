@@ -332,3 +332,33 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 
 	return 0;
 }
+
+int sys___getcwd(userptr_t buf, size_t nbytes, int *retval)
+{
+	if (buf == NULL)
+		return EFAULT;
+
+	int err;
+	size_t kbytes;
+	char *kbuf;
+	struct uio memblock;
+	struct iovec vec;
+
+	kbuf = kmalloc(nbytes);
+	if (kbuf == NULL)
+		return ENOMEM;
+
+	/* Initialize memblock */
+	uio_kinit(&vec, &memblock, kbuf, nbytes, 0, UIO_READ);
+
+	err = copyoutstr(kbuf, buf, nbytes, &kbytes);
+	if (err) {
+		kfree(kbuf);
+		return err;
+	}
+
+	kfree(kbuf);
+	*retval = kbytes;
+
+	return 0;
+}
