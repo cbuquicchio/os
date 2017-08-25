@@ -1,5 +1,5 @@
 #ifndef _FILETABLE_H_
-#define  _FILETABLE_H_
+#define _FILETABLE_H_
 
 #include <types.h>
 
@@ -23,7 +23,7 @@ struct filehandle {
 
 struct filetable {
 	struct filehandle **files;	/* Open files in the file table */
-	struct lock *lk;		/* Sleep lock */
+	struct lock *lk;	/* Sleep lock */
 };
 
 /*
@@ -46,12 +46,17 @@ void filehandle_destroy(struct filehandle *fh);
  *                     files. Return the position in the table that the handle
  *                     was inserted(file descriptor). If no vacant spots are
  *                     found return -1.
+ * filetable_remove  - Removes a file handle in the file table. The file table
+ *                     at the position specified is marked NULL. The handle
+ *                     instance is returned if it was found in the table
+ *                     otherwise NULL should be returned (fh not found).
  * filetable_lookup  - Given file desriptor return its correspond file handle.
  * filetable_destroy - Free the resources used by the file table.
  */
 
 struct filetable *filetable_create(void);
 int filetable_insert(struct filehandle *file, struct filetable *table);
+struct filehandle *filetable_remove(int fd, struct filetable *table);
 struct filehandle *filetable_lookup(int fd, struct filetable *table);
 void filetable_destroy(struct filetable *table);
 

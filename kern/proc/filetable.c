@@ -103,7 +103,6 @@ struct filetable *filetable_create()
 	KASSERT(res == 0);
 	kfree(conpath);
 
-
 	conpath = kstrdup(con);
 	KASSERT(conpath != NULL);
 	res = vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[1]->vn);
@@ -139,6 +138,21 @@ int filetable_insert(struct filehandle *file, struct filetable *table)
 	lock_release(table->lk);
 
 	return pos;
+}
+
+struct filehandle *filetable_remove(int fd, struct filetable *table)
+{
+	KASSERT(fd >= 0 && fd < OPEN_MAX);
+	KASSERT(table != NULL);
+
+	struct filehandle *fh;
+
+	lock_acquire(table->lk);
+	fh = table->files[fd];
+	table->files[fd] = NULL;
+	lock_release(table->lk);
+
+	return fh;
 }
 
 struct filehandle *filetable_lookup(int fd, struct filetable *table)

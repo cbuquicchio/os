@@ -60,6 +60,29 @@ int sys_open(userptr_t filename, int flags, int *retval)
 	return 0;
 }
 
+int sys_close(int fd)
+{
+	KASSERT(curthread->t_filetable != NULL);
+
+	int err = 0;
+	struct filehandle *fh;
+
+	if (fd < 0 || fd >= OPEN_MAX)
+		return EBADF;
+
+	fh = filetable_remove(fd, curthread->t_filetable);
+	if (fh == NULL)
+		return EBADF;
+
+	lock_acquire(fh->fh_lk);
+	vfs_close(fh->vn);
+	lock_release(fh->fh_lk);
+
+	filehandle_destroy(fh);
+
+	return err;
+}
+
 static int readwrite_check(int fd, userptr_t buf)
 {
 	int res = 0;
