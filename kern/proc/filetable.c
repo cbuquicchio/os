@@ -160,12 +160,11 @@ struct filehandle *filetable_lookup(int fd, struct filetable *table)
 
 	KASSERT(fd >= 0);
 	KASSERT(table != NULL);
+	KASSERT(lock_do_i_hold(table->lk));
 
 	struct filehandle *fh = NULL;
 
-	lock_acquire(table->lk);
 	fh = table->files[fd];
-	lock_release(table->lk);
 
 	return fh;
 }

@@ -110,7 +110,9 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 	if (res)
 		return res;
 
+	lock_acquire(curthread->t_filetable->lk);
 	fh = filetable_lookup(fd, curthread->t_filetable);
+	lock_release(curthread->t_filetable->lk);
 
 	if (fh == NULL)		/* File not found in table */
 		return EBADF;
@@ -167,7 +169,9 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 	if (res)
 		return res;
 
+	lock_acquire(curthread->t_filetable->lk);
 	fh = filetable_lookup(fd, curthread->t_filetable);
+	lock_release(curthread->t_filetable->lk);
 
 	/* Check to see if file was not found in filetable */
 	if (fh == NULL)
@@ -233,7 +237,9 @@ int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 	if (err)
 		return err;
 
+	lock_acquire(curthread->t_filetable->lk);
 	fh = filetable_lookup(fd, curthread->t_filetable);
+	lock_release(curthread->t_filetable->lk);
 	if (fh == NULL)
 		return EBADF;
 
@@ -282,6 +288,47 @@ int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 
 	*retval_lo = (uint32_t) (newpos & 0xFFFFFFFF);	/* low bits */
 	*retval_hi = (uint32_t) (newpos >> 32);	/* high bits */
+
+	return 0;
+}
+
+int sys_dup2(int oldfd, int newfd, int *retval)
+{
+	KASSERT(curthread->t_filetable != NULL);
+
+	if (oldfd < 0 || newfd < 0 || oldfd >= OPEN_MAX || newfd >= OPEN_MAX)
+		return EBADF;
+
+	int res;
+	struct filehandle *oldfh;
+	struct filehandle *newfh;
+
+	lock_acquire(curthread->t_filetable->lk);
+	oldfh = filetable_lookup(oldfd, curthread->t_filetable);
+	lock_release(curthread->t_filetable->lk);
+
+	if (oldfh == NULL) {
+		return EBADF;
+	}
+
+	lock_acquire(oldfh->fh_lk);
+	newfh = filehandle_create(oldfh->flag);
+	if (newfh == NULL) {
+		lock_release(oldfh->fh_lk);
+		return ENOMEM;
+	}
+
+	newfh->offset = oldfh->offset;
+	newfh->vn = oldfh->vn;
+	lock_release(oldfh->fh_lk);
+
+	res = filetable_insert(newfh, curthread->t_filetable);
+	KASSERT(res < OPEN_MAX);
+	if (res < 0) {
+		return EMFILE;
+	}
+
+	*retval = res;
 
 	return 0;
 }

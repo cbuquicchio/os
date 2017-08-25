@@ -62,5 +62,6 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval);
 int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval);
 int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 	      int *retval_lo);
+int sys_dup2(int oldfd, int newfd, int *retval);
 
 #endif				/* _SYSCALL_H_ */
