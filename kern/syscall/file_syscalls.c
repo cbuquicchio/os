@@ -362,3 +362,31 @@ int sys___getcwd(userptr_t buf, size_t nbytes, int *retval)
 
 	return 0;
 }
+
+int sys_chdir(userptr_t pathname)
+{
+	if (pathname == NULL)
+		return EFAULT;
+
+	int err;
+	char *kpathname;
+	size_t knbytes;
+
+	kpathname = kmalloc(sizeof(char) * PATH_MAX);
+	if (kpathname == NULL)
+		return ENOMEM;
+
+	err = copyinstr(pathname, kpathname, PATH_MAX, &knbytes);
+	if (err) {
+		kfree(kpathname);
+		return err;
+	}
+
+	err = vfs_chdir(kpathname);
+	if (err) {
+		kfree(kpathname);
+		return err;
+	}
+
+	return 0;
+}
