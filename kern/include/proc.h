@@ -41,7 +41,7 @@
 struct addrspace;
 struct thread;
 struct vnode;
-struct filetable; /* defined in filetable.h */
+struct filetable;		/* defined in filetable.h */
 
 /*
  * Process structure.
@@ -61,17 +61,19 @@ struct filetable; /* defined in filetable.h */
  * without sleeping.
  */
 struct proc {
-	char *p_name;			/* Name of this process */
-	struct spinlock p_lock;		/* Lock for this structure */
-	unsigned p_numthreads;		/* Number of threads in this process */
+	char *p_name;		/* Name of this process */
+	struct spinlock p_lock;	/* Lock for this structure */
+	unsigned p_numthreads;	/* Number of threads in this process */
 
 	/* VM */
 	struct addrspace *p_addrspace;	/* virtual address space */
 
 	/* VFS */
-	struct vnode *p_cwd;		/* current working directory */
+	struct vnode *p_cwd;	/* current working directory */
 
-	struct filetable *p_filetable;  /* File Table */
+	struct filetable *p_filetable;	/* File Table */
+
+	pid_t pid;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -98,4 +100,4 @@ struct addrspace *proc_getas(void);
 /* Change the address space of the current process, and return the old one. */
 struct addrspace *proc_setas(struct addrspace *);
 
-#endif /* _PROC_H_ */
+#endif				/* _PROC_H_ */

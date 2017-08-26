@@ -343,6 +343,7 @@ optfile   hangman thread/hangman.c
 
 file      proc/proc.c
 file      proc/filetable.c
+file      proc/proctable.c
 
 #
 # Virtual memory system
