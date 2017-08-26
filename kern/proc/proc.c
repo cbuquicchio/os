@@ -245,6 +245,37 @@ proc_create_runprogram(const char *name)
 	return newproc;
 }
 
+struct proc *proc_create_forkable()
+{
+	int err;
+	struct proc *child;
+
+	child = proc_create("");
+	if (child == NULL) {
+		return NULL;
+	}
+
+	spinlock_acquire(&curproc->p_lock);
+	child->p_addrspace = NULL;
+
+	err = as_copy(curproc->p_addrspace, &child->p_addrspace);
+	if (err) {
+		return NULL;
+	}
+
+	if (curproc->p_cwd != NULL) {
+		VOP_INCREF(curproc->p_cwd);
+		child->p_cwd = curproc->p_cwd;
+	}
+
+	/* File table copy goes here */
+
+	child->ppid = curproc->ppid;
+	spinlock_release(&curproc->p_lock);
+
+	return child;
+}
+
 /*
  * Add a thread to a process. Either the thread or the process might
  * or might not be current.

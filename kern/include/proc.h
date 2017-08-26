@@ -74,6 +74,7 @@ struct proc {
 	struct filetable *p_filetable;	/* File Table */
 
 	pid_t pid;
+	pid_t ppid;
 };
 
 /* This is the process structure for the kernel and for kernel-only threads. */
@@ -84,6 +85,9 @@ void proc_bootstrap(void);
 
 /* Create a fresh process for use by runprogram(). */
 struct proc *proc_create_runprogram(const char *name);
+
+/* Create a process that is meant to be forked by the current process */
+struct proc *proc_create_forkable(void);
 
 /* Destroy a process. */
 void proc_destroy(struct proc *proc);
