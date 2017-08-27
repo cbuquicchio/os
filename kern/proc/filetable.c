@@ -182,3 +182,46 @@ void filetable_destroy(struct filetable *table)
 	kfree(table->files);
 	kfree(table);
 }
+
+struct filetable *filetable_createcopy(struct filetable *src)
+{
+	KASSERT(src != NULL);
+	KASSERT(src->files != NULL);
+
+	struct filetable *dest;
+
+	dest = kmalloc(sizeof(*dest));
+	if (dest == NULL) {
+		return NULL;
+	}
+
+	dest->files = kmalloc(sizeof(struct filehandle) * OPEN_MAX);
+	if (dest->files == NULL) {
+		kfree(dest);
+		return NULL;
+	}
+
+	dest->lk = lock_create("file table");
+	if (dest->lk == NULL) {
+		kfree(dest->files);
+		kfree(dest);
+		return NULL;
+	}
+
+	lock_acquire(src->lk);
+	int i;
+	for (i = 0; i < OPEN_MAX; i++) {
+		struct filehandle *fh = src->files[i];
+
+		if (fh != NULL) {
+			lock_acquire(fh->fh_lk);
+			fh->refcount++;
+			lock_release(fh->fh_lk);
+		}
+
+		dest->files[i] = fh;
+	}
+	lock_release(src->lk);
+
+	return dest;
+}

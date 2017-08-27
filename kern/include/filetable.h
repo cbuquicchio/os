@@ -39,22 +39,30 @@ void filehandle_destroy(struct filehandle *fh);
 /*
  * File Table operations
  *
- * filetable_create  - Takes no arguments and returns a file table pointer. The
- *                     underlying file table object is initialzed with three
- *                     filehandles corresponding for stdin, stdout, and stderr
- * filetable_insert  - Given a file handle insert it into the array of open
- *                     files. Return the position in the table that the handle
- *                     was inserted(file descriptor). If no vacant spots are
- *                     found return -1.
- * filetable_remove  - Removes a file handle in the file table. The file table
- *                     at the position specified is marked NULL. The handle
- *                     instance is returned if it was found in the table
- *                     otherwise NULL should be returned (fh not found).
- * filetable_lookup  - Given file desriptor return its correspond file handle.
- * filetable_destroy - Free the resources used by the file table.
+ * filetable_create     - Takes no arguments and returns a file table pointer.
+ *                        The file table object is initialzed with three
+ *                        filehandles corresponding for stdin, stdout, and
+ *                        stderr
+ * filetable_createcopy - Creates a copied file table based on the source table
+ *                        pass in. This copy has the same filehandle pointers
+ *                        in its files array. Also all of those file handles
+ *                        have their refcount incremented.
+ * filetable_insert     - Given a file handle insert it into the array of open
+ *                        files. Return the position in the table that the
+ *                        handle was inserted(file descriptor). If no vacant
+ *                        spots are found return -1.
+ * filetable_remove     - Removes a file handle in the file table. The file
+ *                        table at the position specified is marked NULL. The
+ *                        handle instance is returned if it was found in the
+ *                        table otherwise NULL will be returned to indicate the
+ *                        file handle was not found.
+ * filetable_lookup     - Given file desriptor return its correspond file
+ *                        handle.
+ * filetable_destroy    - Free the resources used by the file table.
  */
 
 struct filetable *filetable_create(void);
+struct filetable *filetable_createcopy(struct filetable *src);
 int filetable_insert(struct filehandle *file, struct filetable *table);
 struct filehandle *filetable_remove(int fd, struct filetable *table);
 struct filehandle *filetable_lookup(int fd, struct filetable *table);
