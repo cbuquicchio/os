@@ -67,4 +67,6 @@ int sys___getcwd(userptr_t buf, size_t nbytes, int *retval);
 int sys_chdir(userptr_t pathname);
 int sys_fstat(int fd, userptr_t statbuf);
 
+int sys_fork(struct trapframe *tf, int *retval);
+
 #endif				/* _SYSCALL_H_ */

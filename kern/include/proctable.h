@@ -18,9 +18,8 @@ struct proctable {
 	struct ptablenode *tail;
 };
 
-struct ptablenode *ptablenode_create(struct proc *p);
-
 void proctable_bootstrap(void);
-pid_t proctable_add(struct ptablenode *node, struct proctable *table);
+pid_t proctable_insert(struct proc *p, struct proctable *table);
+struct proctable *proctable_get(void);
 
 #endif				/* _PROC_TABLE_H_ */

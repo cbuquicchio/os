@@ -49,6 +49,7 @@
 #include <addrspace.h>
 #include <vnode.h>
 #include <filetable.h>
+#include <proctable.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -191,6 +192,8 @@ void proc_bootstrap(void)
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
+
+	proctable_bootstrap();
 }
 
 /*
@@ -250,23 +253,26 @@ struct proc *proc_create_forkable()
 		return NULL;
 	}
 
-	spinlock_acquire(&curproc->p_lock);
-	child->p_addrspace = NULL;
+	/* Child shoud not have an address space yet */
+	KASSERT(child->p_addrspace == NULL);
+
 
 	err = as_copy(curproc->p_addrspace, &child->p_addrspace);
 	if (err) {
 		return NULL;
 	}
 
+	spinlock_acquire(&curproc->p_lock);
 	if (curproc->p_cwd != NULL) {
 		VOP_INCREF(curproc->p_cwd);
 		child->p_cwd = curproc->p_cwd;
 	}
 
-	child->p_filetable = filetable_createcopy(curproc->p_filetable);
-
 	child->ppid = curproc->ppid;
 	spinlock_release(&curproc->p_lock);
+
+	child->p_filetable = filetable_createcopy(curproc->p_filetable);
+
 
 	return child;
 }

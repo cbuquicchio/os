@@ -7,7 +7,7 @@
 
 static struct proctable *ptable = NULL;
 
-struct ptablenode *ptablenode_create(struct proc *p)
+static struct ptablenode *ptablenode_create(struct proc *p)
 {
 	KASSERT(p != NULL);
 
@@ -43,21 +43,43 @@ void proctable_bootstrap()
 	KASSERT(ptable != NULL);
 }
 
-pid_t proctable_add(struct ptablenode *node, struct proctable *table)
+pid_t proctable_insert(struct proc *p, struct proctable *table)
 {
-	KASSERT(node != NULL);
+	KASSERT(p!= NULL);
 	KASSERT(table != NULL);
 	KASSERT(table->pidcounter <= PID_MAX);
 
+	struct ptablenode *pnode;
+
+	pnode = ptablenode_create(p);
+	if (pnode == NULL) {
+		return PID_MIN - 1;
+	}
+
 	lock_acquire(table->ptable_lk);
 
-	KASSERT(table->tail->next == NULL);
-	table->tail->next = node;
-	table->tail = node;
+	KASSERT(pnode->proc != NULL);
 
-	KASSERT(node->proc != NULL);
-	node->proc->pid = ++table->pidcounter;
-	lock_acquire(table->ptable_lk);
+	if (table->head == NULL) {	/* Empty table */
+		KASSERT(table->tail == NULL);
+		table->head = pnode;
+		table->tail = pnode;
+	} else {
+		KASSERT(table->tail->next == NULL);
+		table->tail->next = pnode;
+		table->tail = pnode;
+	}
 
-	return node->proc->pid;
+	pnode->proc->pid = table->pidcounter;
+	table->pidcounter++;
+	lock_release(table->ptable_lk);
+
+	return pnode->proc->pid;
+}
+
+struct proctable *proctable_get()
+{
+	KASSERT(ptable != NULL);
+
+	return ptable;
 }
