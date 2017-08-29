@@ -118,7 +118,9 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 		return EBADF;
 
 	lock_acquire(fh->fh_lk);
-	if (fh->flag == O_WRONLY) {	/* Cannot read, file is writeonly */
+
+	/* Cannot read, file is writeonly */
+	if ((fh->flag & O_ACCMODE) == O_WRONLY) {
 		lock_release(fh->fh_lk);
 		return EBADF;
 	}
@@ -180,7 +182,7 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 	lock_acquire(fh->fh_lk);
 
 	/* Cannot write to readonly file */
-	if (fh->flag == O_RDONLY) {
+	if ((fh->flag & O_ACCMODE) == O_RDONLY) {
 		lock_release(fh->fh_lk);
 		return EBADF;
 	}
@@ -295,6 +297,11 @@ int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 int sys_dup2(int oldfd, int newfd, int *retval)
 {
 	KASSERT(curthread->t_filetable != NULL);
+
+	if (oldfd == newfd) {
+		*retval = oldfd;
+		return 0;
+	}
 
 	if (oldfd < 0 || newfd < 0 || oldfd >= OPEN_MAX || newfd >= OPEN_MAX)
 		return EBADF;
