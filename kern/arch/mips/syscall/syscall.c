@@ -148,6 +148,10 @@ void syscall(struct trapframe *tf)
 		err = sys_chdir((userptr_t) tf->tf_a0);
 		break;
 
+	case SYS_fstat:
+		err = sys_fstat(tf->tf_a0, (userptr_t) tf->tf_a1);
+		break;
+
 	default:
 		kprintf("Unknown syscall %d\n", callno);
 		err = ENOSYS;

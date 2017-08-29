@@ -397,3 +397,35 @@ int sys_chdir(userptr_t pathname)
 
 	return 0;
 }
+
+int sys_fstat(int fd, userptr_t statbuf)
+{
+	KASSERT(curthread->t_filetable != NULL);
+	int err;
+	struct stat kstat;
+	struct filehandle *fh;
+
+	err = readwrite_check(fd, statbuf);
+	if (err)
+		return err;
+
+	lock_acquire(curthread->t_filetable->lk);
+	fh = filetable_lookup(fd, curthread->t_filetable);
+	lock_release(curthread->t_filetable->lk);
+
+	if (fh == NULL)
+		return EBADF;
+
+	lock_acquire(fh->fh_lk);
+	err = VOP_STAT(fh->vn, &kstat);
+	lock_release(fh->fh_lk);
+
+	if (err)
+		return err;
+
+	err = copyout(&kstat, statbuf, sizeof(struct stat));
+	if (err)
+		return err;
+
+	return 0;
+}
