@@ -309,36 +309,29 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 	if (oldfd < 0 || newfd < 0 || oldfd >= OPEN_MAX || newfd >= OPEN_MAX)
 		return EBADF;
 
-	int res;
 	struct filehandle *oldfh;
 	struct filehandle *newfh;
 
 	lock_acquire(curthread->t_filetable->lk);
 	oldfh = filetable_lookup(oldfd, curthread->t_filetable);
-	lock_release(curthread->t_filetable->lk);
-
 	if (oldfh == NULL) {
+		lock_release(curthread->t_filetable->lk);
 		return EBADF;
 	}
 
 	lock_acquire(oldfh->fh_lk);
-	newfh = filehandle_create(oldfh->flag);
-	if (newfh == NULL) {
-		lock_release(oldfh->fh_lk);
-		return ENOMEM;
+
+	newfh = filetable_lookup(newfd, curthread->t_filetable);
+	if (newfh != NULL) {
+		/* TODO: Close the file handle pointed to by newfd */
 	}
 
-	newfh->offset = oldfh->offset;
-	newfh->vn = oldfh->vn;
+	curthread->t_filetable->files[newfd] = oldfh;
+
 	lock_release(oldfh->fh_lk);
+	lock_release(curthread->t_filetable->lk);
 
-	res = filetable_insert(newfh, curthread->t_filetable);
-	KASSERT(res < OPEN_MAX);
-	if (res < 0) {
-		return EMFILE;
-	}
-
-	*retval = res;
+	*retval = newfd;
 
 	return 0;
 }
