@@ -268,7 +268,7 @@ struct proc *proc_create_forkable()
 		child->p_cwd = curproc->p_cwd;
 	}
 
-	child->ppid = curproc->ppid;
+	child->ppid = curproc->pid;
 	spinlock_release(&curproc->p_lock);
 
 	child->p_filetable = filetable_createcopy(curproc->p_filetable);
