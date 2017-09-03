@@ -51,6 +51,7 @@
 #include <filetable.h>
 #include <proctable.h>
 #include <synch.h>
+#include <limits.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -217,9 +218,20 @@ void proc_bootstrap(void)
 struct proc *proc_create_runprogram(const char *name)
 {
 	struct proc *newproc;
+	struct proctable *ptable;
+	pid_t pid;
 
 	newproc = proc_create(name);
 	if (newproc == NULL) {
+		return NULL;
+	}
+
+	ptable = proctable_get();
+	KASSERT(ptable != NULL);
+
+	pid = proctable_insert(newproc, ptable);
+	if (pid < PID_MIN) {
+		proc_destroy(newproc);
 		return NULL;
 	}
 

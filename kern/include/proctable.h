@@ -5,10 +5,15 @@
 
 struct proc;			/* defined in <proc.h> */
 struct lock;			/* defined in <synch.h> */
+struct cv;			/* defined in <synch.h> */
 
 struct ptablenode {
-	struct proc *proc;
-	struct ptablenode *next;
+	struct proc *proc;	/* The underlying process */
+	struct ptablenode *next;	/* A pointer to the next node */
+	struct lock *lk;	/* Lock for accessing values */
+	struct cv *cv;		/* Used for waiting procs */
+	int status;
+	int hasexited;
 };
 
 struct proctable {
@@ -21,5 +26,6 @@ struct proctable {
 void proctable_bootstrap(void);
 pid_t proctable_insert(struct proc *p, struct proctable *table);
 struct proctable *proctable_get(void);
+struct ptablenode *proctable_lookup(pid_t pid);
 
 #endif				/* _PROC_TABLE_H_ */

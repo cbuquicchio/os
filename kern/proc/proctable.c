@@ -14,12 +14,26 @@ static struct ptablenode *ptablenode_create(struct proc *p)
 	struct ptablenode *node;
 
 	node = kmalloc(sizeof(*node));
-	if (node == NULL) {
+	if (node == NULL)
+		return NULL;
+
+	node->cv = cv_create("");
+	if (node->cv == NULL) {
+		kfree(node);
+		return NULL;
+	}
+
+	node->lk = lock_create("");
+	if (node->lk == NULL) {
+		cv_destroy(node->cv);
+		kfree(node);
 		return NULL;
 	}
 
 	node->proc = p;
 	node->next = NULL;
+	node->status = 0;
+	node->hasexited = 0;
 
 	return node;
 }
@@ -36,19 +50,7 @@ void proctable_bootstrap()
 
 	table->head = NULL;
 	table->tail = NULL;
-
-	/*
-	 * Start the pid counter at one less than the min pid for a user
-	 * process. This assumes that the kernel process will be created and
-	 * inserted into the proc table before any user procs are. The kernel
-	 * proc will then get assigned pid 1 and everything else should line
-	 * up fine.
-	 */
-	table->pidcounter = PID_MIN - 1;
-
-	/* Insert the kernel process as the first entry */
-	proctable_insert(kproc, table);
-	KASSERT(kproc->pid == 1);
+	table->pidcounter = PID_MIN;
 
 	KASSERT(ptable == NULL);
 	ptable = table;
@@ -65,7 +67,7 @@ pid_t proctable_insert(struct proc *p, struct proctable *table)
 
 	pnode = ptablenode_create(p);
 	if (pnode == NULL) {
-		return 0;
+		return PID_MIN - 1;	/* return an impossible pid */
 	}
 
 	lock_acquire(table->ptable_lk);
@@ -87,6 +89,30 @@ pid_t proctable_insert(struct proc *p, struct proctable *table)
 	lock_release(table->ptable_lk);
 
 	return pnode->proc->pid;
+}
+
+struct ptablenode *proctable_lookup(pid_t pid)
+{
+	KASSERT(ptable != NULL);
+	// KASSERT(pid >= PID_MIN && pid <= PID_MAX);
+
+	struct ptablenode *node;
+
+	/*
+	 *  if the pid we are looking for is created later than the max pid
+	 *  that has been created already we can  guarantee that no process
+	 *  exists with that pid.
+	 */
+	if (pid > ptable->pidcounter)
+		return NULL;
+
+	node = ptable->head;
+
+	while (node->proc->pid != pid) {
+		node = node->next;
+	}
+
+	return node;
 }
 
 struct proctable *proctable_get()
