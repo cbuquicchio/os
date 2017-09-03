@@ -35,6 +35,8 @@ struct filehandle *filehandle_create(int flag)
 void filehandle_destroy(struct filehandle *fh)
 {
 	KASSERT(fh != NULL);
+	KASSERT(fh->fh_lk->lk_owner == NULL);
+	KASSERT(fh->refcount == 0);
 
 	lock_destroy(fh->fh_lk);
 	kfree(fh->vn);

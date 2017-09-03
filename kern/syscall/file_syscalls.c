@@ -75,10 +75,13 @@ int sys_close(int fd)
 		return EBADF;
 
 	lock_acquire(fh->fh_lk);
-	vfs_close(fh->vn);
+	fh->refcount--;
 	lock_release(fh->fh_lk);
 
-	filehandle_destroy(fh);
+	if (fh->refcount == 0) {
+		vfs_close(fh->vn);
+		filehandle_destroy(fh);
+	}
 
 	return err;
 }
