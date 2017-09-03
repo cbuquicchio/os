@@ -45,7 +45,7 @@ void proctable_bootstrap()
 
 pid_t proctable_insert(struct proc *p, struct proctable *table)
 {
-	KASSERT(p!= NULL);
+	KASSERT(p != NULL);
 	KASSERT(table != NULL);
 	KASSERT(table->pidcounter <= PID_MAX);
 
