@@ -36,7 +36,19 @@ void proctable_bootstrap()
 
 	table->head = NULL;
 	table->tail = NULL;
-	table->pidcounter = PID_MIN;
+
+	/*
+	 * Start the pid counter at one less than the min pid for a user
+	 * process. This assumes that the kernel process will be created and
+	 * inserted into the proc table before any user procs are. The kernel
+	 * proc will then get assigned pid 1 and everything else should line
+	 * up fine.
+	 */
+	table->pidcounter = PID_MIN - 1;
+
+	/* Insert the kernel process as the first entry */
+	proctable_insert(kproc, table);
+	KASSERT(kproc->pid == 1);
 
 	KASSERT(ptable == NULL);
 	ptable = table;
@@ -53,7 +65,7 @@ pid_t proctable_insert(struct proc *p, struct proctable *table)
 
 	pnode = ptablenode_create(p);
 	if (pnode == NULL) {
-		return PID_MIN - 1;
+		return 0;
 	}
 
 	lock_acquire(table->ptable_lk);

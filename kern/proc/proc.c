@@ -50,6 +50,7 @@
 #include <vnode.h>
 #include <filetable.h>
 #include <proctable.h>
+#include <synch.h>
 
 /*
  * The process for the kernel; this holds all the kernel-only threads.
@@ -83,8 +84,21 @@ struct proc *proc_create(const char *name)
 	/* VFS fields */
 	proc->p_cwd = NULL;
 
-	/* File Table */
+	/* File Table fields */
 	proc->p_filetable = NULL;
+
+	/*
+	 * Process Table fields
+	 * A pid of 0 is an invalid pid. The value 1 is assigned to the kernel
+	 * process. All user processes should have a pid between PID_MIN and
+	 * PID_MAX. The pid is assigned when a process is inserted into the
+	 * process table via proctable_insert. The ppid (parent pid) is
+	 * assigned to user processes when proc_create_forkable is called.
+	 * The kernel process does not have a parent so 0 is a valid ppid value
+	 * only for kproc.
+	 */
+	proc->pid = 0;
+	proc->ppid = 0;
 
 	return proc;
 }
@@ -192,8 +206,6 @@ void proc_bootstrap(void)
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
-
-	proctable_bootstrap();
 }
 
 /*
@@ -256,7 +268,6 @@ struct proc *proc_create_forkable()
 	/* Child shoud not have an address space yet */
 	KASSERT(child->p_addrspace == NULL);
 
-
 	err = as_copy(curproc->p_addrspace, &child->p_addrspace);
 	if (err) {
 		return NULL;
@@ -272,7 +283,6 @@ struct proc *proc_create_forkable()
 	spinlock_release(&curproc->p_lock);
 
 	child->p_filetable = filetable_createcopy(curproc->p_filetable);
-
 
 	return child;
 }
