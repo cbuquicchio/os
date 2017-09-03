@@ -43,14 +43,14 @@ int sys_open(userptr_t filename, int flags, int *retval)
 
 	res = vfs_open(kfname, flags, 0, &fh->vn);
 	if (res) {
-		filehandle_destroy(fh);
+		filehandle_cleanup(fh);
 		kfree(kfname);
 		return res;
 	}
 
 	res = filetable_insert(fh, curthread->t_filetable);
 	if (res < 0) {
-		filehandle_destroy(fh);
+		filehandle_cleanup(fh);
 		kfree(kfname);
 		return EMFILE;
 	}
@@ -74,14 +74,7 @@ int sys_close(int fd)
 	if (fh == NULL)
 		return EBADF;
 
-	lock_acquire(fh->fh_lk);
-	fh->refcount--;
-	lock_release(fh->fh_lk);
-
-	if (fh->refcount == 0) {
-		vfs_close(fh->vn);
-		filehandle_destroy(fh);
-	}
+	filehandle_cleanup(fh);
 
 	return err;
 }
@@ -323,7 +316,7 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 
 	newfh = filetable_lookup(newfd, curthread->t_filetable);
 	if (newfh != NULL) {
-		/* TODO: Close the file handle pointed to by newfd */
+		filehandle_cleanup(newfh);
 	}
 
 	curthread->t_filetable->files[newfd] = oldfh;

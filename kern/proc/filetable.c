@@ -26,20 +26,36 @@ struct filehandle *filehandle_create(int flag)
 
 	fh->vn = NULL;
 	fh->offset = 0;
-	fh->refcount = 0;
+	fh->refcount = 1;
 	fh->flag = flag;
 
 	return fh;
 }
 
-void filehandle_destroy(struct filehandle *fh)
+void filehandle_cleanup(struct filehandle *fh)
 {
 	KASSERT(fh != NULL);
-	KASSERT(fh->fh_lk->lk_owner == NULL);
-	KASSERT(fh->refcount == 0);
 
+	lock_acquire(fh->fh_lk);
+
+	KASSERT(fh->refcount > 0);
+	fh->refcount--;
+
+	if (fh->refcount > 0) {
+		lock_release(fh->fh_lk);
+		return;
+	}
+
+	/*
+	 * We may attempt a cleanup before ever opening a file object. Since
+	 * vfs_close attempts to free the underlying memory of the vnode
+	 * pointer we want to guard against this.
+	 */
+	if (fh->vn != NULL)
+		vfs_close(fh->vn);
+
+	lock_release(fh->fh_lk);
 	lock_destroy(fh->fh_lk);
-	kfree(fh->vn);
 	kfree(fh);
 }
 
@@ -74,15 +90,15 @@ struct filetable *filetable_create()
 
 	table->files[1] = filehandle_create(O_WRONLY);	/* STDOUT */
 	if (table->files[1] == NULL) {
-		filehandle_destroy(table->files[0]);
+		filehandle_cleanup(table->files[0]);
 		kfree(table->files);
 		kfree(table);
 	}
 
 	table->files[2] = filehandle_create(O_WRONLY);	/* STDERR */
 	if (table->files[2] == NULL) {
-		filehandle_destroy(table->files[0]);
-		filehandle_destroy(table->files[1]);
+		filehandle_cleanup(table->files[0]);
+		filehandle_cleanup(table->files[1]);
 		kfree(table->files);
 		kfree(table);
 	}
@@ -179,6 +195,16 @@ struct filehandle *filetable_lookup(int fd, struct filetable *table)
 void filetable_destroy(struct filetable *table)
 {
 	KASSERT(table != NULL);
+
+	lock_acquire(table->lk);
+	int i;
+	for (i = 0; i < OPEN_MAX; i++) {
+		if (table->files[i] != NULL) {
+			filehandle_cleanup(table->files[i]);
+			table->files[i] = NULL;
+		}
+	}
+	lock_release(table->lk);
 
 	lock_destroy(table->lk);
 	kfree(table->files);

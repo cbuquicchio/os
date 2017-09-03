@@ -30,11 +30,14 @@ struct filetable {
  * File Handle operations
  *
  * filehandle_create  - Create a file handle struct with the supplied flag.
- * filehandle_destroy - Destroys the given filehandle.
+ * filehandle_cleanup - Decrements the refcount of a given file handle. If
+ *                      after decrementing the count no more file tables are
+ *                      referencing it, it is deallocated and the associated
+ *                      vnode is closed.
  */
 
 struct filehandle *filehandle_create(int flag);
-void filehandle_destroy(struct filehandle *fh);
+void filehandle_cleanup(struct filehandle *fh);
 
 /*
  * File Table operations
