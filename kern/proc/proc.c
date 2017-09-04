@@ -308,7 +308,6 @@ int proc_addthread(struct proc *proc, struct thread *t)
 
 	spl = splhigh();
 	t->t_proc = proc;
-	t->t_filetable = proc->p_filetable;
 	splx(spl);
 
 	return 0;
@@ -338,7 +337,6 @@ void proc_remthread(struct thread *t)
 
 	spl = splhigh();
 	t->t_proc = NULL;
-	t->t_filetable = NULL;
 	splx(spl);
 }
 

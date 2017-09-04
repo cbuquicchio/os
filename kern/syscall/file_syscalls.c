@@ -1,5 +1,6 @@
 #include <types.h>
 #include <copyinout.h>
+#include <proc.h>
 #include <current.h>
 #include <filetable.h>
 #include <limits.h>
@@ -15,7 +16,7 @@
 
 int sys_open(userptr_t filename, int flags, int *retval)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 
 	int res;
 	char *kfname;
@@ -48,7 +49,7 @@ int sys_open(userptr_t filename, int flags, int *retval)
 		return res;
 	}
 
-	res = filetable_insert(fh, curthread->t_filetable);
+	res = filetable_insert(fh, curproc->p_filetable);
 	if (res < 0) {
 		filehandle_cleanup(fh);
 		kfree(kfname);
@@ -62,7 +63,7 @@ int sys_open(userptr_t filename, int flags, int *retval)
 
 int sys_close(int fd)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 
 	int err = 0;
 	struct filehandle *fh;
@@ -70,7 +71,7 @@ int sys_close(int fd)
 	if (fd < 0 || fd >= OPEN_MAX)
 		return EBADF;
 
-	fh = filetable_remove(fd, curthread->t_filetable);
+	fh = filetable_remove(fd, curproc->p_filetable);
 	if (fh == NULL)
 		return EBADF;
 
@@ -94,7 +95,7 @@ static int readwrite_check(int fd, userptr_t buf)
 
 int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 
 	int res;
 	void *kbuf;
@@ -106,9 +107,9 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 	if (res)
 		return res;
 
-	lock_acquire(curthread->t_filetable->lk);
-	fh = filetable_lookup(fd, curthread->t_filetable);
-	lock_release(curthread->t_filetable->lk);
+	lock_acquire(curproc->p_filetable->lk);
+	fh = filetable_lookup(fd, curproc->p_filetable);
+	lock_release(curproc->p_filetable->lk);
 
 	if (fh == NULL)		/* File not found in table */
 		return EBADF;
@@ -155,7 +156,7 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 
 int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 
 	int res;		/* Used for responses to function calls */
 	void *kbuf;		/* Kernel buffer to copy user buffer to */
@@ -167,9 +168,9 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 	if (res)
 		return res;
 
-	lock_acquire(curthread->t_filetable->lk);
-	fh = filetable_lookup(fd, curthread->t_filetable);
-	lock_release(curthread->t_filetable->lk);
+	lock_acquire(curproc->p_filetable->lk);
+	fh = filetable_lookup(fd, curproc->p_filetable);
+	lock_release(curproc->p_filetable->lk);
 
 	/* Check to see if file was not found in filetable */
 	if (fh == NULL)
@@ -220,7 +221,7 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 	      int *retval_lo)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 
 	int err;
 	off_t newpos;
@@ -235,9 +236,9 @@ int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 	if (err)
 		return err;
 
-	lock_acquire(curthread->t_filetable->lk);
-	fh = filetable_lookup(fd, curthread->t_filetable);
-	lock_release(curthread->t_filetable->lk);
+	lock_acquire(curproc->p_filetable->lk);
+	fh = filetable_lookup(fd, curproc->p_filetable);
+	lock_release(curproc->p_filetable->lk);
 	if (fh == NULL)
 		return EBADF;
 
@@ -292,7 +293,7 @@ int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 
 int sys_dup2(int oldfd, int newfd, int *retval)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 
 	if (oldfd == newfd) {
 		*retval = oldfd;
@@ -305,24 +306,24 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 	struct filehandle *oldfh;
 	struct filehandle *newfh;
 
-	lock_acquire(curthread->t_filetable->lk);
-	oldfh = filetable_lookup(oldfd, curthread->t_filetable);
+	lock_acquire(curproc->p_filetable->lk);
+	oldfh = filetable_lookup(oldfd, curproc->p_filetable);
 	if (oldfh == NULL) {
-		lock_release(curthread->t_filetable->lk);
+		lock_release(curproc->p_filetable->lk);
 		return EBADF;
 	}
 
 	lock_acquire(oldfh->fh_lk);
 
-	newfh = filetable_lookup(newfd, curthread->t_filetable);
+	newfh = filetable_lookup(newfd, curproc->p_filetable);
 	if (newfh != NULL) {
 		filehandle_cleanup(newfh);
 	}
 
-	curthread->t_filetable->files[newfd] = oldfh;
+	curproc->p_filetable->files[newfd] = oldfh;
 
 	lock_release(oldfh->fh_lk);
-	lock_release(curthread->t_filetable->lk);
+	lock_release(curproc->p_filetable->lk);
 
 	*retval = newfd;
 
@@ -389,7 +390,7 @@ int sys_chdir(userptr_t pathname)
 
 int sys_fstat(int fd, userptr_t statbuf)
 {
-	KASSERT(curthread->t_filetable != NULL);
+	KASSERT(curproc->p_filetable != NULL);
 	int err;
 	struct stat kstat;
 	struct filehandle *fh;
@@ -398,9 +399,9 @@ int sys_fstat(int fd, userptr_t statbuf)
 	if (err)
 		return err;
 
-	lock_acquire(curthread->t_filetable->lk);
-	fh = filetable_lookup(fd, curthread->t_filetable);
-	lock_release(curthread->t_filetable->lk);
+	lock_acquire(curproc->p_filetable->lk);
+	fh = filetable_lookup(fd, curproc->p_filetable);
+	lock_release(curproc->p_filetable->lk);
 
 	if (fh == NULL)
 		return EBADF;

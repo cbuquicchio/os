@@ -115,8 +115,6 @@ struct thread {
 	/*
 	 * Public fields
 	 */
-
-	struct filetable *t_filetable;  /* Process file table */
 };
 
 /*
