@@ -98,7 +98,6 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 	KASSERT(curproc->p_filetable != NULL);
 
 	int res;
-	void *kbuf;
 	struct filehandle *fh;
 	struct uio block;
 	struct iovec vec;
@@ -122,26 +121,13 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 		return EBADF;
 	}
 
-	kbuf = kmalloc(nbytes);
-	if (kbuf == NULL) {
-		lock_release(fh->fh_lk);
-		return ENOMEM;
-	}
-
 	/* Init uio memory block abstration */
-	uio_kinit(&vec, &block, kbuf, nbytes, fh->offset, UIO_READ);
+	uio_uinit(&vec, &block, buf, nbytes, curproc->p_addrspace,
+		  fh->offset, UIO_READ);
 
 	res = VOP_READ(fh->vn, &block);
 	if (res) {
 		lock_release(fh->fh_lk);
-		kfree(kbuf);
-		return res;
-	}
-
-	res = copyout(kbuf, buf, nbytes);
-	if (res) {
-		lock_release(fh->fh_lk);
-		kfree(kbuf);
 		return res;
 	}
 
@@ -149,7 +135,6 @@ int sys_read(int fd, userptr_t buf, size_t nbytes, int *retval)
 	fh->offset += (off_t) (*retval);
 
 	lock_release(fh->fh_lk);
-	kfree(kbuf);
 
 	return 0;
 }
@@ -159,7 +144,6 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 	KASSERT(curproc->p_filetable != NULL);
 
 	int res;		/* Used for responses to function calls */
-	void *kbuf;		/* Kernel buffer to copy user buffer to */
 	struct filehandle *fh;
 	struct uio block;	/* Memory block abstraction */
 	struct iovec vec;
@@ -184,26 +168,13 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 		return EBADF;
 	}
 
-	kbuf = kmalloc(nbytes);
-	if (kbuf == NULL) {
-		lock_release(fh->fh_lk);
-		return ENOMEM;
-	}
-
-	res = copyin(buf, kbuf, nbytes);
-	if (res) {
-		lock_release(fh->fh_lk);
-		kfree(kbuf);
-		return res;
-	}
-
 	/* Initialze the memory block data structure */
-	uio_kinit(&vec, &block, kbuf, nbytes, fh->offset, UIO_WRITE);
+	uio_uinit(&vec, &block, buf, nbytes, curproc->p_addrspace,
+		  fh->offset, UIO_WRITE);
 
 	res = VOP_WRITE(fh->vn, &block);
 	if (res) {
 		lock_release(fh->fh_lk);
-		kfree(kbuf);
 		return res;
 	}
 
@@ -213,7 +184,6 @@ int sys_write(int fd, userptr_t buf, size_t nbytes, int *retval)
 	fh->offset += (off_t) (*retval);	/* Update the offset */
 
 	lock_release(fh->fh_lk);
-	kfree(kbuf);
 
 	return 0;
 }
@@ -336,26 +306,18 @@ int sys___getcwd(userptr_t buf, size_t nbytes, int *retval)
 		return EFAULT;
 
 	int err;
-	size_t kbytes;
-	char *kbuf;
 	struct uio memblock;
 	struct iovec vec;
 
-	kbuf = kmalloc(nbytes);
-	if (kbuf == NULL)
-		return ENOMEM;
-
 	/* Initialize memblock */
-	uio_kinit(&vec, &memblock, kbuf, nbytes, 0, UIO_READ);
+	uio_uinit(&vec, &memblock, buf, nbytes, curproc->p_addrspace,
+		  0, UIO_READ);
 
-	err = copyoutstr(kbuf, buf, nbytes, &kbytes);
-	if (err) {
-		kfree(kbuf);
+	err = vfs_getcwd(&memblock);
+	if (err)
 		return err;
-	}
 
-	kfree(kbuf);
-	*retval = kbytes;
+	*retval = nbytes - memblock.uio_resid;
 
 	return 0;
 }

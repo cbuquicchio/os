@@ -59,27 +59,26 @@
 
 /* Direction. */
 enum uio_rw {
-        UIO_READ,			/* From kernel to uio_seg */
-        UIO_WRITE,			/* From uio_seg to kernel */
+	UIO_READ,		/* From kernel to uio_seg */
+	UIO_WRITE,		/* From uio_seg to kernel */
 };
 
 /* Source/destination. */
 enum uio_seg {
-        UIO_USERISPACE,			/* User process code. */
-        UIO_USERSPACE,			/* User process data. */
-        UIO_SYSSPACE,			/* Kernel. */
+	UIO_USERISPACE,		/* User process code. */
+	UIO_USERSPACE,		/* User process data. */
+	UIO_SYSSPACE,		/* Kernel. */
 };
 
 struct uio {
-	struct iovec     *uio_iov;	/* Data blocks */
-	unsigned          uio_iovcnt;	/* Number of iovecs */
-	off_t             uio_offset;	/* Desired offset into object */
-	size_t            uio_resid;	/* Remaining amt of data to xfer */
-	enum uio_seg      uio_segflg;	/* What kind of pointer we have */
-	enum uio_rw       uio_rw;	/* Whether op is a read or write */
+	struct iovec *uio_iov;	/* Data blocks */
+	unsigned uio_iovcnt;	/* Number of iovecs */
+	off_t uio_offset;	/* Desired offset into object */
+	size_t uio_resid;	/* Remaining amt of data to xfer */
+	enum uio_seg uio_segflg;	/* What kind of pointer we have */
+	enum uio_rw uio_rw;	/* Whether op is a read or write */
 	struct addrspace *uio_space;	/* Address space for user pointer */
 };
-
 
 /*
  * Copy data from a kernel buffer to a data region defined by a uio struct,
@@ -135,8 +134,18 @@ int uiomovezeros(size_t len, struct uio *uio);
  *      result = VOP_READ(vn, &myuio);
  *      ...
  */
-void uio_kinit(struct iovec *, struct uio *,
-	       void *kbuf, size_t len, off_t pos, enum uio_rw rw);
 
+void uio_kinit(struct iovec *iov, struct uio *u, void *kbuf,
+	       size_t len, off_t pos, enum uio_rw rw);
 
-#endif /* _UIO_H_ */
+/*
+ * Initialize a uio suitable for I/) from a user space buffer.
+ *
+ * This was implemented in order to avoid wasteful memory allocation copying
+ * from user buffer to a kernel buffer in order to use a uio.
+ */
+void uio_uinit(struct iovec *iov, struct uio *u, void *ubuf,
+	       size_t len, struct addrspace *addrspace, off_t pos,
+	       enum uio_rw rw);
+
+#endif				/* _UIO_H_ */

@@ -38,20 +38,18 @@
  * See uio.h for a description.
  */
 
-int
-uiomove(void *ptr, size_t n, struct uio *uio)
+int uiomove(void *ptr, size_t n, struct uio *uio)
 {
 	struct iovec *iov;
 	size_t size;
 	int result;
 
 	if (uio->uio_rw != UIO_READ && uio->uio_rw != UIO_WRITE) {
-		panic("uiomove: Invalid uio_rw %d\n", (int) uio->uio_rw);
+		panic("uiomove: Invalid uio_rw %d\n", (int)uio->uio_rw);
 	}
-	if (uio->uio_segflg==UIO_SYSSPACE) {
+	if (uio->uio_segflg == UIO_SYSSPACE) {
 		KASSERT(uio->uio_space == NULL);
-	}
-	else {
+	} else {
 		KASSERT(uio->uio_space == proc_getas());
 	}
 
@@ -81,31 +79,29 @@ uiomove(void *ptr, size_t n, struct uio *uio)
 		}
 
 		switch (uio->uio_segflg) {
-		    case UIO_SYSSPACE:
-			    if (uio->uio_rw == UIO_READ) {
-				    memmove(iov->iov_kbase, ptr, size);
-			    }
-			    else {
-				    memmove(ptr, iov->iov_kbase, size);
-			    }
-			    iov->iov_kbase = ((char *)iov->iov_kbase+size);
-			    break;
-		    case UIO_USERSPACE:
-		    case UIO_USERISPACE:
-			    if (uio->uio_rw == UIO_READ) {
-				    result = copyout(ptr, iov->iov_ubase,size);
-			    }
-			    else {
-				    result = copyin(iov->iov_ubase, ptr, size);
-			    }
-			    if (result) {
-				    return result;
-			    }
-			    iov->iov_ubase += size;
-			    break;
-		    default:
-			    panic("uiomove: Invalid uio_segflg %d\n",
-				  (int)uio->uio_segflg);
+		case UIO_SYSSPACE:
+			if (uio->uio_rw == UIO_READ) {
+				memmove(iov->iov_kbase, ptr, size);
+			} else {
+				memmove(ptr, iov->iov_kbase, size);
+			}
+			iov->iov_kbase = ((char *)iov->iov_kbase + size);
+			break;
+		case UIO_USERSPACE:
+		case UIO_USERISPACE:
+			if (uio->uio_rw == UIO_READ) {
+				result = copyout(ptr, iov->iov_ubase, size);
+			} else {
+				result = copyin(iov->iov_ubase, ptr, size);
+			}
+			if (result) {
+				return result;
+			}
+			iov->iov_ubase += size;
+			break;
+		default:
+			panic("uiomove: Invalid uio_segflg %d\n",
+			      (int)uio->uio_segflg);
 		}
 
 		iov->iov_len -= size;
@@ -118,8 +114,7 @@ uiomove(void *ptr, size_t n, struct uio *uio)
 	return 0;
 }
 
-int
-uiomovezeros(size_t n, struct uio *uio)
+int uiomovezeros(size_t n, struct uio *uio)
 {
 	/* static, so initialized as zero */
 	static char zeros[16];
@@ -144,21 +139,32 @@ uiomovezeros(size_t n, struct uio *uio)
 	return 0;
 }
 
-/*
- * Convenience function to initialize an iovec and uio for kernel I/O.
- */
-
-void
-uio_kinit(struct iovec *iov, struct uio *u,
-	  void *kbuf, size_t len, off_t pos, enum uio_rw rw)
+static void uio_init(struct iovec *iov, struct uio *u, void *buf,
+		     struct addrspace *addrspace, size_t len, off_t pos,
+		     enum uio_rw rw, enum uio_seg seg)
 {
-	iov->iov_kbase = kbuf;
+	iov->iov_kbase = buf;
 	iov->iov_len = len;
 	u->uio_iov = iov;
 	u->uio_iovcnt = 1;
 	u->uio_offset = pos;
 	u->uio_resid = len;
-	u->uio_segflg = UIO_SYSSPACE;
+	u->uio_segflg = seg;
 	u->uio_rw = rw;
-	u->uio_space = NULL;
+	u->uio_space = addrspace;
+}
+
+/* Convenience function to initialize an iovec and uio for kernel I/O. */
+void uio_kinit(struct iovec *iov, struct uio *u, void *kbuf,
+	       size_t len, off_t pos, enum uio_rw rw)
+{
+	uio_init(iov, u, kbuf, NULL, len, pos, rw, UIO_SYSSPACE);
+}
+
+/* Convenience function to init an iovec and uio for user I/O. */
+void uio_uinit(struct iovec *iov, struct uio *u, void *ubuf,
+	       size_t len, struct addrspace *addrspace, off_t pos,
+	       enum uio_rw rw)
+{
+	uio_init(iov, u, ubuf, addrspace, len, pos, rw, UIO_USERSPACE);
 }
