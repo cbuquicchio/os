@@ -14,6 +14,8 @@
 #include <kern/seek.h>		/* Contains the codes for lseek whence */
 #include <kern/stat.h>
 
+#define UINT_BIT_MASK	0xFFFFFFFF
+
 int sys_open(userptr_t filename, int flags, int *retval)
 {
 	KASSERT(curproc->p_filetable != NULL);
@@ -255,7 +257,7 @@ int sys_lseek(int fd, off_t pos, userptr_t whence, int *retval_hi,
 	fh->offset = newpos;
 	lock_release(fh->fh_lk);
 
-	*retval_lo = (uint32_t) (newpos & 0xFFFFFFFF);	/* low bits */
+	*retval_lo = (uint32_t) (newpos & UINT_BIT_MASK);	/* low bits */
 	*retval_hi = (uint32_t) (newpos >> 32);	/* high bits */
 
 	return 0;
