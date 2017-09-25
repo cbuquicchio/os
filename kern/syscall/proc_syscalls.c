@@ -1,4 +1,5 @@
 #include <types.h>
+#include <lib.h>
 #include <current.h>
 #include <kern/errno.h>
 #include <limits.h>
@@ -9,6 +10,10 @@
 #include <syscall.h>
 #include <synch.h>
 #include <copyinout.h>
+#include <addrspace.h>
+#include <vnode.h>
+#include <vfs.h>
+#include <kern/fcntl.h>
 
 static void enter_forked_proc(void *tf, unsigned long _)
 {
@@ -118,4 +123,160 @@ int sys__exit(int exitcode)
 	thread_exit();
 
 	return 0;
+}
+
+static int setup_runprogram(char *progname, vaddr_t * stackptr,
+			    vaddr_t * entrypoint)
+{
+	struct addrspace *as;
+	struct vnode *v;
+	int err;
+
+	/* Open the file. */
+	err = vfs_open(progname, O_RDONLY, 0, &v);
+	if (err)
+		return err;
+
+	/* Create a new address space. */
+	as = as_create();
+	if (as == NULL) {
+		vfs_close(v);
+		return ENOMEM;
+	}
+
+	/* Destroy the old address space before assigning the new one */
+	as_destroy(proc_getas());
+
+	/* Switch to it and activate it. */
+	proc_setas(as);
+	as_activate();
+
+	/* Load the executable. */
+	err = load_elf(v, entrypoint);
+	if (err) {
+		/* p_addrspace will go away when curproc is destroyed */
+		vfs_close(v);
+		return err;
+	}
+
+	/* Done with the file now. */
+	vfs_close(v);
+
+	/* Define the user stack in the address space */
+	err = as_define_stack(as, stackptr);
+
+	return err;
+}
+
+static int process_arguments(userptr_t uargs, char *kargbuf, int *argc)
+{
+	char *kargs;
+	int err;		/* Error flag */
+	size_t bytetotal;	/* The total number of bytes in kargbuf */
+	size_t slen;		/* The number of bytes copied using copyinstr */
+
+	/* Initialize argc */
+	*argc = 0;
+	err = 0;
+	bytetotal = 0;
+
+	while (1) {
+		err = copyin(uargs + (*argc) * 4, &kargs, 4);
+		if (err || kargs == NULL)
+			break;
+
+		err = copyinstr((userptr_t) kargs, kargbuf + bytetotal,
+				ARG_MAX - bytetotal, &slen);
+		if (err)
+			break;
+
+		bytetotal += slen;
+
+		/* Pad with NULL bytes to take up the rest of the word size */
+		while (bytetotal % sizeof(kargs)) {
+			bytetotal++;
+			*(kargbuf + bytetotal) = '\0';
+		}
+
+		(*argc)++;
+	}
+
+	return err;
+}
+
+int sys_execv(userptr_t progname, userptr_t args)
+{
+	char *kprogname;
+	size_t slen;
+	int err;
+
+	kprogname = kmalloc(PATH_MAX);
+	if (kprogname == NULL)
+		return ENOMEM;
+
+	/* Copy the progranme name from userspace to kernel space */
+	err = copyinstr(progname, kprogname, PATH_MAX, &slen);
+	if (err) {
+		kfree(kprogname);
+		return err;
+	}
+
+	char *kargbuf;
+	int argc;
+
+	kargbuf = kmalloc(ARG_MAX);
+	if (kargbuf == NULL) {
+		kfree(kprogname);
+		return ENOMEM;
+	}
+
+	err = process_arguments(args, kargbuf, &argc);
+	if (err) {
+		kfree(kprogname);
+		kfree(kargbuf);
+		return err;
+	}
+
+	vaddr_t entrypoint;
+	vaddr_t stackptr;
+
+	err = setup_runprogram(kprogname, &stackptr, &entrypoint);
+	if (err) {
+		kfree(kprogname);
+		kfree(kargbuf);
+		return err;
+	}
+
+	/* Copy each one of the arguments to the stack */
+	int i;
+	char *kargv[argc + 1];
+	size_t sofar;
+	for (i = 0, sofar = 0; i < argc; i++) {
+		slen = strlen(kargbuf + sofar);
+		slen += sizeof(char *) - slen % sizeof(char *);
+
+		stackptr -= sofar + slen;
+		err = copyout(kargbuf + sofar, (userptr_t) stackptr, slen);
+		if (err)
+			break;
+
+		kargv[i] = (char *)stackptr;
+		sofar += slen;
+	}
+
+	stackptr -= sizeof(kargv);
+	kargv[argc] = NULL;
+
+	/* Copy argv to the stack */
+	err = copyout(kargv, (userptr_t) stackptr, sizeof(kargv));
+	kfree(kargbuf);
+	if (err)
+		return err;
+
+	enter_new_process(argc, (userptr_t) stackptr, NULL,
+			  stackptr, entrypoint);
+
+	/* enter_new_process does not return. */
+	panic("enter_new_process returned\n");
+	return EINVAL;
 }
