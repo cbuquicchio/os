@@ -294,6 +294,8 @@ int sys_dup2(int oldfd, int newfd, int *retval)
 
 	curproc->p_filetable->files[newfd] = oldfh;
 
+	oldfh->refcount++;
+
 	lock_release(oldfh->fh_lk);
 	lock_release(curproc->p_filetable->lk);
 
