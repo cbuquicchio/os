@@ -14,6 +14,7 @@
 #include <vnode.h>
 #include <vfs.h>
 #include <kern/fcntl.h>
+#include <kern/wait.h>
 
 static void enter_forked_proc(void *tf, unsigned long _)
 {
@@ -118,7 +119,7 @@ int sys__exit(int exitcode)
 
 	lock_acquire(procnode->lk);
 	procnode->hasexited = 1;
-	procnode->status = exitcode;
+	procnode->status = _MKWAIT_EXIT(exitcode);
 	cv_broadcast(procnode->cv, procnode->lk);
 	lock_release(procnode->lk);
 
