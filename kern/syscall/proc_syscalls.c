@@ -78,8 +78,8 @@ int sys_getpid(int *retval)
 
 int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 {
-	(void)options;
 	struct ptablenode *childnode;
+	int err = 0;
 
 	if (pid < PID_MIN || pid > PID_MAX)	/* Impossble pid value check */
 		return ESRCH;
@@ -91,8 +91,8 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 	if (childnode->proc->ppid != curproc->pid)
 		return ECHILD;	/* Process is not a child process */
 
-	if (status == NULL)
-		return EFAULT;
+	if (options != 0)
+		return EINVAL;
 
 	lock_acquire(childnode->lk);
 
@@ -101,10 +101,12 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 	}
 
 	*retval = pid;
-	copyout(&childnode->status, status, sizeof(int));
+	if (status != NULL)
+		err = copyout(&childnode->status, status, sizeof(int));
+
 	lock_release(childnode->lk);
 
-	return 0;
+	return err;
 }
 
 int sys__exit(int exitcode)
