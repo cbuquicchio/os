@@ -37,9 +37,8 @@ int sys_fork(struct trapframe *tf, int *retval)
 	pid_t pid;
 
 	tfcpy = kmalloc(sizeof(*tfcpy));
-	if (tfcpy == NULL) {
+	if (tfcpy == NULL)
 		return ENOMEM;
-	}
 
 	memcpy(tfcpy, tf, sizeof(*tfcpy));
 
@@ -97,9 +96,8 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 
 	lock_acquire(childnode->lk);
 
-	if (childnode->hasexited == 0) {	/* child proc has not exited */
+	if (childnode->hasexited == 0)	/* child proc has not exited */
 		cv_wait(childnode->cv, childnode->lk);
-	}
 
 	*retval = pid;
 	if (status != NULL)
@@ -124,8 +122,10 @@ int sys__exit(int exitcode)
 	lock_release(procnode->lk);
 
 	thread_exit();
+	/* thread_exit does not return */
+	panic("thread_exit returned\n");
 
-	return 0;
+	return EINVAL;
 }
 
 static int setup_runprogram(char *progname, vaddr_t * stackptr,

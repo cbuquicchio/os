@@ -66,9 +66,8 @@ pid_t proctable_insert(struct proc *p, struct proctable *table)
 	struct ptablenode *pnode;
 
 	pnode = ptablenode_create(p);
-	if (pnode == NULL) {
+	if (pnode == NULL)
 		return PID_MIN - 1;	/* return an impossible pid */
-	}
 
 	lock_acquire(table->ptable_lk);
 
@@ -94,7 +93,6 @@ pid_t proctable_insert(struct proc *p, struct proctable *table)
 struct ptablenode *proctable_lookup(pid_t pid)
 {
 	KASSERT(ptable != NULL);
-	// KASSERT(pid >= PID_MIN && pid <= PID_MAX);
 
 	struct ptablenode *node;
 
@@ -108,9 +106,8 @@ struct ptablenode *proctable_lookup(pid_t pid)
 
 	node = ptable->head;
 
-	while (node->proc->pid != pid) {
+	while (node->proc->pid != pid)
 		node = node->next;
-	}
 
 	return node;
 }
