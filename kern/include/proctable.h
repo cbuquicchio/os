@@ -22,7 +22,6 @@ struct proctable {
 	pid_t pidcounter;
 	struct lock *ptable_lk;
 	struct ptablenode *head;
-	struct ptablenode *tail;
 };
 
 void proctable_bootstrap(void);

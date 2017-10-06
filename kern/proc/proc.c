@@ -192,6 +192,7 @@ void proc_destroy(struct proc *proc)
 	 */
 	if (proc->p_filetable) {
 		filetable_destroy(proc->p_filetable);
+		proc->p_filetable = NULL;
 	}
 
 	kfree(proc->p_name);

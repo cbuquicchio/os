@@ -49,7 +49,6 @@ void proctable_bootstrap()
 	KASSERT(table->ptable_lk != NULL);
 
 	table->head = NULL;
-	table->tail = NULL;
 	table->pidcounter = PID_MIN;
 
 	KASSERT(ptable == NULL);
@@ -74,13 +73,11 @@ pid_t proctable_insert(struct proc *p, pid_t ppid, struct proctable *table)
 	KASSERT(pnode->proc != NULL);
 
 	if (table->head == NULL) {	/* Empty table */
-		KASSERT(table->tail == NULL);
 		table->head = pnode;
-		table->tail = pnode;
 	} else {
-		KASSERT(table->tail->next == NULL);
-		table->tail->next = pnode;
-		table->tail = pnode;
+		struct ptablenode *tmp = table->head;
+		table->head = pnode;
+		pnode->next = tmp;
 	}
 
 	pnode->ppid = ppid;
@@ -99,7 +96,7 @@ struct ptablenode *proctable_lookup(pid_t pid)
 	struct ptablenode *node;
 
 	/*
-	 *  if the pid we are looking for is created later than the max pid
+	 *  If the pid we are looking for is created later than the max pid
 	 *  that has been created already we can  guarantee that no process
 	 *  exists with that pid.
 	 */
@@ -108,7 +105,8 @@ struct ptablenode *proctable_lookup(pid_t pid)
 
 	node = ptable->head;
 
-	while (node->pid != pid)
+	/* Iterate until we find a matching pid or we reach the end */
+	while (node != NULL && node->pid != pid)
 		node = node->next;
 
 	return node;
