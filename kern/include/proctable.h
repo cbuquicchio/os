@@ -14,6 +14,8 @@ struct ptablenode {
 	struct cv *cv;		/* Used for waiting procs */
 	int status;
 	int hasexited;
+	pid_t pid;
+	pid_t ppid;
 };
 
 struct proctable {
@@ -24,7 +26,7 @@ struct proctable {
 };
 
 void proctable_bootstrap(void);
-pid_t proctable_insert(struct proc *p, struct proctable *table);
+pid_t proctable_insert(struct proc *p, pid_t ppid, struct proctable *table);
 struct proctable *proctable_get(void);
 struct ptablenode *proctable_lookup(pid_t pid);
 

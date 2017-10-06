@@ -57,7 +57,7 @@ void proctable_bootstrap()
 	KASSERT(ptable != NULL);
 }
 
-pid_t proctable_insert(struct proc *p, struct proctable *table)
+pid_t proctable_insert(struct proc *p, pid_t ppid, struct proctable *table)
 {
 	KASSERT(p != NULL);
 	KASSERT(table != NULL);
@@ -83,7 +83,9 @@ pid_t proctable_insert(struct proc *p, struct proctable *table)
 		table->tail = pnode;
 	}
 
-	pnode->proc->pid = table->pidcounter;
+	pnode->ppid = ppid;
+	pnode->pid = table->pidcounter;
+	p->pid = table->pidcounter;
 	table->pidcounter++;
 	lock_release(table->ptable_lk);
 
@@ -106,7 +108,7 @@ struct ptablenode *proctable_lookup(pid_t pid)
 
 	node = ptable->head;
 
-	while (node->proc->pid != pid)
+	while (node->pid != pid)
 		node = node->next;
 
 	return node;

@@ -48,7 +48,7 @@ int sys_fork(struct trapframe *tf, int *retval)
 		return ENOMEM;
 	}
 
-	pid = proctable_insert(newproc, proctable_get());
+	pid = proctable_insert(newproc, curproc->pid, proctable_get());
 	if (pid < PID_MIN) {
 		proc_destroy(newproc);
 		kfree(tfcpy);
@@ -88,7 +88,7 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 	if (childnode == NULL)
 		return ESRCH;	/* Process does not exist */
 
-	if (childnode->proc->ppid != curproc->pid)
+	if (childnode->ppid != curproc->pid)
 		return ECHILD;	/* Process is not a child process */
 
 	if (options != 0)
@@ -120,6 +120,10 @@ int sys__exit(int exitcode)
 	procnode->status = _MKWAIT_EXIT(exitcode);
 	cv_broadcast(procnode->cv, procnode->lk);
 	lock_release(procnode->lk);
+
+	/* Clean up the current process */
+	proc_remthread(curthread);
+	proc_destroy(procnode->proc);
 
 	thread_exit();
 	/* thread_exit does not return */

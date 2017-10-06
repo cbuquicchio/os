@@ -229,7 +229,7 @@ struct proc *proc_create_runprogram(const char *name)
 	ptable = proctable_get();
 	KASSERT(ptable != NULL);
 
-	pid = proctable_insert(newproc, ptable);
+	pid = proctable_insert(newproc, curproc->pid, ptable);
 	if (pid < PID_MIN) {
 		proc_destroy(newproc);
 		return NULL;
