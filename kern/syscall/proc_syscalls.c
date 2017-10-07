@@ -42,7 +42,7 @@ int sys_fork(struct trapframe *tf, int *retval)
 
 	memcpy(tfcpy, tf, sizeof(*tfcpy));
 
-	newproc = proc_create_forkable();
+	newproc = proc_create_forkable(curproc->p_name);
 	if (newproc == NULL) {
 		kfree(tfcpy);
 		return ENOMEM;

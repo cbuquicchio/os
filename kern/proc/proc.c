@@ -99,7 +99,6 @@ struct proc *proc_create(const char *name)
 	 * only for kproc.
 	 */
 	proc->pid = 0;
-	proc->ppid = 0;
 
 	return proc;
 }
@@ -210,39 +209,21 @@ void proc_bootstrap(void)
 	}
 }
 
-/*
- * Create a fresh proc for use by runprogram.
- *
- * It will have no address space and will inherit the current
- * process's (that is, the kernel menu's) current directory.
- */
-struct proc *proc_create_runprogram(const char *name)
+static struct proc *proc_create_common(const char *name)
 {
 	struct proc *newproc;
 	struct proctable *ptable;
 	pid_t pid;
 
 	newproc = proc_create(name);
-	if (newproc == NULL) {
+	if (newproc == NULL)
 		return NULL;
-	}
 
 	ptable = proctable_get();
 	KASSERT(ptable != NULL);
 
 	pid = proctable_insert(newproc, curproc->pid, ptable);
 	if (pid < PID_MIN) {
-		proc_destroy(newproc);
-		return NULL;
-	}
-
-	/*
-	 * The file table is only needed for user proc's that is why  we only
-	 * create file tables in this function instead of proc_create or
-	 * proc_bootstrap
-	 */
-	newproc->p_filetable = filetable_create();
-	if (newproc->p_filetable == NULL) {
 		proc_destroy(newproc);
 		return NULL;
 	}
@@ -268,15 +249,42 @@ struct proc *proc_create_runprogram(const char *name)
 	return newproc;
 }
 
-struct proc *proc_create_forkable()
+/*
+ * Create a fresh proc for use by runprogram.
+ *
+ * It will have no address space and will inherit the current
+ * process's (that is, the kernel menu's) current directory.
+ */
+struct proc *proc_create_runprogram(const char *name)
 {
-	int err;
-	struct proc *child;
+	struct proc *newproc;
 
-	child = proc_create("");
-	if (child == NULL) {
+	newproc = proc_create_common(name);
+	if (newproc == NULL)
+		return NULL;
+
+	/*
+	 * The file table is only needed for user proc's that is why  we only
+	 * create file tables in this function instead of proc_create or
+	 * proc_bootstrap
+	 */
+	newproc->p_filetable = filetable_create();
+	if (newproc->p_filetable == NULL) {
+		proc_destroy(newproc);
 		return NULL;
 	}
+
+	return newproc;
+}
+
+struct proc *proc_create_forkable(const char *name)
+{
+	struct proc *child;
+	int err;
+
+	child = proc_create_common(name);
+	if (child == NULL)
+		return NULL;
 
 	/* Child shoud not have an address space yet */
 	KASSERT(child->p_addrspace == NULL);
@@ -285,15 +293,6 @@ struct proc *proc_create_forkable()
 	if (err) {
 		return NULL;
 	}
-
-	spinlock_acquire(&curproc->p_lock);
-	if (curproc->p_cwd != NULL) {
-		VOP_INCREF(curproc->p_cwd);
-		child->p_cwd = curproc->p_cwd;
-	}
-
-	child->ppid = curproc->pid;
-	spinlock_release(&curproc->p_lock);
 
 	child->p_filetable = filetable_createcopy(curproc->p_filetable);
 
