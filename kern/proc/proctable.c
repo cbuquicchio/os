@@ -38,6 +38,17 @@ static struct ptablenode *ptablenode_create(struct proc *p)
 	return node;
 }
 
+static void ptablenode_destroy(struct ptablenode *node)
+{
+	KASSERT(node != NULL);
+	KASSERT(lock_do_i_hold(node->lk));
+
+	cv_destroy(node->cv);
+	lock_release(node->lk);
+	lock_destroy(node->lk);
+	kfree(node);
+}
+
 void proctable_bootstrap()
 {
 	struct proctable *table;
@@ -84,9 +95,44 @@ pid_t proctable_insert(struct proc *p, pid_t ppid, struct proctable *table)
 	pnode->pid = table->pidcounter;
 	p->pid = table->pidcounter;
 	table->pidcounter++;
+
 	lock_release(table->ptable_lk);
 
 	return pnode->proc->pid;
+}
+
+void proctable_remove(pid_t pid)
+{
+	KASSERT(ptable != NULL);
+
+	lock_acquire(ptable->ptable_lk);
+
+	struct ptablenode *cur;
+	struct ptablenode *prev;
+
+	cur = ptable->head;
+	prev = NULL;
+
+	while (cur != NULL && cur->pid != pid) {
+		prev = cur;
+		cur = cur->next;
+	}
+
+	/* Not found */
+	if (cur == NULL) {
+		lock_release(ptable->ptable_lk);
+		return;
+	}
+
+	if (prev == NULL)	/* cur is the head of the list */
+		ptable->head = cur->next;
+	else
+		prev->next = cur->next;
+
+	cur->next = NULL;
+
+	ptablenode_destroy(cur);
+	lock_release(ptable->ptable_lk);
 }
 
 struct ptablenode *proctable_lookup(pid_t pid)

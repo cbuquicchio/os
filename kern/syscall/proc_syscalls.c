@@ -85,26 +85,34 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 	if (pid < PID_MIN || pid > PID_MAX)	/* Impossble pid value check */
 		return ESRCH;
 
+	if (options != 0)
+		return EINVAL;
+
 	childnode = proctable_lookup(pid);
 	if (childnode == NULL)
 		return ESRCH;	/* Process does not exist */
 
-	if (childnode->ppid != curproc->pid)
-		return ECHILD;	/* Process is not a child process */
-
-	if (options != 0)
-		return EINVAL;
-
 	lock_acquire(childnode->lk);
+
+	if (childnode->ppid != curproc->pid) {
+		lock_release(childnode->lk);
+		return ECHILD;	/* Process is not a child process */
+	}
 
 	if (childnode->hasexited == 0)	/* child proc has not exited */
 		cv_wait(childnode->cv, childnode->lk);
+
+	/*
+	 * Process should be destroyed at this point by the child process
+	 * exiting.
+	 */
+	KASSERT(childnode->proc == NULL);
 
 	*retval = pid;
 	if (status != NULL)
 		err = copyout(&childnode->status, status, sizeof(int));
 
-	lock_release(childnode->lk);
+	proctable_remove(childnode->pid);
 
 	return err;
 }
@@ -117,14 +125,19 @@ int sys__exit(int exitcode)
 	KASSERT(procnode != NULL);
 
 	lock_acquire(procnode->lk);
+
 	procnode->hasexited = 1;
 	procnode->status = _MKWAIT_EXIT(exitcode);
-	cv_broadcast(procnode->cv, procnode->lk);
-	lock_release(procnode->lk);
 
 	/* Clean up the current process */
 	proc_remthread(curthread);
 	proc_destroy(procnode->proc);
+	procnode->proc = NULL;
+
+	/* Wake up the parent process */
+	cv_broadcast(procnode->cv, procnode->lk);
+
+	lock_release(procnode->lk);
 
 	thread_exit();
 	/* thread_exit does not return */
