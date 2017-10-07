@@ -57,7 +57,8 @@ int sys_fork(struct trapframe *tf, int *retval)
 
 	*retval = pid;
 
-	err = thread_fork("test", newproc, &enter_forked_proc, tfcpy, 0);
+	err = thread_fork(curthread->t_name, newproc, &enter_forked_proc,
+			  tfcpy, 0);
 	if (err) {
 		kfree(tfcpy);
 		proc_destroy(newproc);

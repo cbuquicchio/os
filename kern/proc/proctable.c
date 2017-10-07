@@ -95,19 +95,24 @@ struct ptablenode *proctable_lookup(pid_t pid)
 
 	struct ptablenode *node;
 
+	lock_acquire(ptable->ptable_lk);
 	/*
 	 *  If the pid we are looking for is created later than the max pid
 	 *  that has been created already we can  guarantee that no process
 	 *  exists with that pid.
 	 */
-	if (pid > ptable->pidcounter)
+	if (pid > ptable->pidcounter) {
+		lock_release(ptable->ptable_lk);
 		return NULL;
+	}
 
 	node = ptable->head;
 
 	/* Iterate until we find a matching pid or we reach the end */
 	while (node != NULL && node->pid != pid)
 		node = node->next;
+
+	lock_release(ptable->ptable_lk);
 
 	return node;
 }
