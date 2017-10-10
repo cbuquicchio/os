@@ -1,6 +1,7 @@
 #include <types.h>
 #include <lib.h>
 #include <limits.h>
+#include <current.h>
 #include <proc.h>
 #include <synch.h>
 #include <proctable.h>
@@ -34,6 +35,8 @@ static struct ptablenode *ptablenode_create(struct proc *p)
 	node->next = NULL;
 	node->status = 0;
 	node->hasexited = 0;
+	node->pid = 0;
+	node->ppid = 0;
 
 	return node;
 }
@@ -67,38 +70,38 @@ void proctable_bootstrap()
 	KASSERT(ptable != NULL);
 }
 
-pid_t proctable_insert(struct proc *p, pid_t ppid, struct proctable *table)
+pid_t proctable_insert(struct proc *p)
 {
 	KASSERT(p != NULL);
-	KASSERT(table != NULL);
-	KASSERT(table->pidcounter <= PID_MAX);
+	KASSERT(ptable->pidcounter <= PID_MAX);
 
-	struct ptablenode *pnode;
+	struct ptablenode *node;
 
-	pnode = ptablenode_create(p);
-	if (pnode == NULL)
+	node = ptablenode_create(p);
+	if (node == NULL)
 		return PID_MIN - 1;	/* return an impossible pid */
 
-	lock_acquire(table->ptable_lk);
+	lock_acquire(ptable->ptable_lk);
 
-	KASSERT(pnode->proc != NULL);
+	KASSERT(node->proc != NULL);
 
-	if (table->head == NULL) {	/* Empty table */
-		table->head = pnode;
-	} else {
-		struct ptablenode *tmp = table->head;
-		table->head = pnode;
-		pnode->next = tmp;
-	}
+	node->next = ptable->head;
+	ptable->head = node;
 
-	pnode->ppid = ppid;
-	pnode->pid = table->pidcounter;
-	p->pid = table->pidcounter;
-	table->pidcounter++;
+	node->pid = ptable->pidcounter;
+	spinlock_acquire(&p->p_lock);
+	p->pid = ptable->pidcounter;
+	spinlock_release(&p->p_lock);
 
-	lock_release(table->ptable_lk);
+	spinlock_acquire(&curproc->p_lock);
+	node->ppid = curproc->pid;
+	spinlock_release(&curproc->p_lock);
 
-	return pnode->proc->pid;
+	ptable->pidcounter++;
+
+	lock_release(ptable->ptable_lk);
+
+	return node->pid;
 }
 
 void proctable_remove(pid_t pid)

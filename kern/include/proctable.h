@@ -25,7 +25,7 @@ struct proctable {
 };
 
 void proctable_bootstrap(void);
-pid_t proctable_insert(struct proc *p, pid_t ppid, struct proctable *table);
+pid_t proctable_insert(struct proc *p);
 void proctable_remove(pid_t pid);
 struct proctable *proctable_get(void);
 struct ptablenode *proctable_lookup(pid_t pid);

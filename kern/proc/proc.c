@@ -222,7 +222,7 @@ static struct proc *proc_create_common(const char *name)
 	ptable = proctable_get();
 	KASSERT(ptable != NULL);
 
-	pid = proctable_insert(newproc, curproc->pid, ptable);
+	pid = proctable_insert(newproc);
 	if (pid < PID_MIN) {
 		proc_destroy(newproc);
 		return NULL;
