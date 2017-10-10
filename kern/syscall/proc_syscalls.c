@@ -34,7 +34,6 @@ int sys_fork(struct trapframe *tf, int *retval)
 	struct trapframe *tfcpy;
 	struct proc *newproc;
 	int err;
-	pid_t pid;
 
 	tfcpy = kmalloc(sizeof(*tfcpy));
 	if (tfcpy == NULL)
@@ -48,14 +47,7 @@ int sys_fork(struct trapframe *tf, int *retval)
 		return ENOMEM;
 	}
 
-	pid = proctable_insert(newproc, curproc->pid, proctable_get());
-	if (pid < PID_MIN) {
-		proc_destroy(newproc);
-		kfree(tfcpy);
-		return ENOMEM;
-	}
-
-	*retval = pid;
+	*retval = newproc->pid;
 
 	err = thread_fork(curthread->t_name, newproc, &enter_forked_proc,
 			  tfcpy, 0);
