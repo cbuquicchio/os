@@ -104,7 +104,7 @@ int sys_waitpid(pid_t pid, userptr_t status, int options, int *retval)
 	if (status != NULL)
 		err = copyout(&childnode->status, status, sizeof(int));
 
-	proctable_remove(childnode->pid);
+	proctable_remove(childnode);
 
 	return err;
 }

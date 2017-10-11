@@ -63,6 +63,7 @@ void proctable_bootstrap()
 	KASSERT(table->ptable_lk != NULL);
 
 	table->head = NULL;
+	table->tail = NULL;
 	table->pidcounter = PID_MIN;
 
 	KASSERT(ptable == NULL);
@@ -85,7 +86,14 @@ pid_t proctable_insert(struct proc *p)
 
 	KASSERT(node->proc != NULL);
 
-	node->next = ptable->head;
+	if (ptable->tail == NULL) {	/* Empty list */
+		KASSERT(ptable->head == NULL);
+		ptable->tail = node;
+	} else {
+		ptable->head->prev = node;
+		node->next = ptable->head;
+	}
+
 	ptable->head = node;
 
 	node->pid = ptable->pidcounter;
@@ -104,38 +112,34 @@ pid_t proctable_insert(struct proc *p)
 	return node->pid;
 }
 
-void proctable_remove(pid_t pid)
+void proctable_remove(struct ptablenode *node)
 {
 	KASSERT(ptable != NULL);
 
 	lock_acquire(ptable->ptable_lk);
-
-	struct ptablenode *cur;
-	struct ptablenode *prev;
-
-	cur = ptable->head;
-	prev = NULL;
-
-	while (cur != NULL && cur->pid != pid) {
-		prev = cur;
-		cur = cur->next;
-	}
-
-	/* Not found */
-	if (cur == NULL) {
-		lock_release(ptable->ptable_lk);
+	if (ptable->head == NULL) {
+		KASSERT(ptable->tail == NULL);
 		return;
 	}
 
-	if (prev == NULL)	/* cur is the head of the list */
-		ptable->head = cur->next;
-	else
-		prev->next = cur->next;
+	if (node == ptable->head && node == ptable->tail) {
+		ptable->head = NULL;
+		ptable->tail = NULL;
+	} else if (node == ptable->head) {
+		ptable->head = node->next;
+		node->next->prev = NULL;
+	} else if (node == ptable->tail) {
+		ptable->tail = node->prev;
+		node->prev->next = NULL;
+	} else {
+		node->prev->next = node->next;
+		node->next->prev = node->prev;
+	}
 
-	cur->next = NULL;
-
-	ptablenode_destroy(cur);
 	lock_release(ptable->ptable_lk);
+	lock_acquire(node->lk);
+
+	ptablenode_destroy(node);
 }
 
 struct ptablenode *proctable_lookup(pid_t pid)
