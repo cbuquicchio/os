@@ -207,6 +207,12 @@ void proc_bootstrap(void)
 	if (kproc == NULL) {
 		panic("proc_create for kproc failed\n");
 	}
+
+	/*
+	 * Create the proctable and insert the kproc as the first entry.
+	 * Kproc is assigned the pid of 1 and the ppid of 0.
+	 */
+	proctable_bootstrap();
 }
 
 static struct proc *proc_create_common(const char *name)

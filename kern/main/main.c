@@ -116,7 +116,6 @@ void boot(void)
 	kprintf("Device probe...\n");
 	KASSERT(curthread->t_curspl > 0);
 	mainbus_bootstrap();
-	proctable_bootstrap();
 	KASSERT(curthread->t_curspl == 0);
 	/* Now do pseudo-devices. */
 	pseudoconfig();

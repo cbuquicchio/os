@@ -69,6 +69,22 @@ void proctable_bootstrap()
 	KASSERT(ptable == NULL);
 	ptable = table;
 	KASSERT(ptable != NULL);
+
+	/* Insert kproc as the first entry of the process table */
+	KASSERT(kproc != NULL);
+	struct ptablenode *knode;
+
+	knode = ptablenode_create(kproc);
+	if (knode == NULL) {
+		panic("proctable_boostrap could not insert the kernel proc.\n");
+		return;
+	}
+
+	ptable->head = knode;
+	ptable->tail = knode;
+	knode->pid = 1;
+	knode->ppid = 0;
+	kproc->pid = 1;
 }
 
 pid_t proctable_insert(struct proc *p)
