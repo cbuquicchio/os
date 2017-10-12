@@ -31,5 +31,6 @@ pid_t proctable_insert(struct proc *p);
 void proctable_remove(struct ptablenode *node);
 struct proctable *proctable_get(void);
 struct ptablenode *proctable_lookup(pid_t pid);
+void proctable_exorcise(void);
 
 #endif				/* _PROC_TABLE_H_ */

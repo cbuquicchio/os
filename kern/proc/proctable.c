@@ -186,6 +186,30 @@ struct ptablenode *proctable_lookup(pid_t pid)
 	return node;
 }
 
+void proctable_exorcise()
+{
+	KASSERT(ptable != NULL);
+
+	struct ptablenode *cur;
+
+	lock_acquire(ptable->ptable_lk);
+	cur = ptable->head;
+
+	while (cur != NULL) {
+		if (cur->hasexited) {
+			ptable->head = cur->next;
+			cur->next->prev = NULL;
+			lock_acquire(cur->lk);
+			ptablenode_destroy(cur);
+			cur = ptable->head;
+		} else {
+			cur = cur->next;
+		}
+	}
+
+	lock_release(ptable->ptable_lk);
+}
+
 struct proctable *proctable_get()
 {
 	KASSERT(ptable != NULL);

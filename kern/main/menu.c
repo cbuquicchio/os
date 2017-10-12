@@ -39,6 +39,7 @@
 #include <synch.h>
 #include <thread.h>
 #include <proc.h>
+#include <proctable.h>
 #include <vfs.h>
 #include <sfs.h>
 #include <syscall.h>
@@ -95,6 +96,7 @@ cmd_progthread(void *ptr, unsigned long nargs)
 	if (result) {
 		kprintf("Running program %s failed: %s\n", args[0],
 			strerror(result));
+		sys__exit(result);
 		return;
 	}
 
@@ -144,9 +146,15 @@ common_prog(int nargs, char **args)
 	 * once you write the code for handling that.
 	 */
 
-	// Wait for all threads to finish cleanup, otherwise khu be a bit behind,
-	// especially once swapping is enabled.
+	/*
+	 * Wait for all threads to finish cleanup, otherwise khu be a bit behind,
+	 * especially once swapping is enabled.
+	 * This is essentially waitpid on any procs created above.
+	 */
 	thread_wait_for_count(tc);
+
+	/* Clean up zombie process table nodes */
+	proctable_exorcise();
 
 	return 0;
 }
