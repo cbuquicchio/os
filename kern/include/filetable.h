@@ -64,7 +64,7 @@ void filehandle_cleanup(struct filehandle *fh);
  * filetable_destroy    - Free the resources used by the file table.
  */
 
-struct filetable *filetable_create(void);
+void filetable_bootstrap(void);
 struct filetable *filetable_createcopy(struct filetable *src);
 int filetable_insert(struct filehandle *file, struct filetable *table);
 struct filehandle *filetable_remove(int fd, struct filetable *table);

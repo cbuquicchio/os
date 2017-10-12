@@ -7,6 +7,7 @@
 #include <synch.h>
 #include <vfs.h>
 #include <vnode.h>
+#include <proc.h>
 
 struct filehandle *filehandle_create(int flag)
 {
@@ -59,20 +60,21 @@ void filehandle_cleanup(struct filehandle *fh)
 	kfree(fh);
 }
 
-struct filetable *filetable_create()
+void filetable_bootstrap()
 {
 	int res;
 	struct filetable *table;
 
 	table = kmalloc(sizeof(*table));
 	if (table == NULL) {
-		return NULL;
+		panic("filetable_bootstrap failed.\n");
+		return;
 	}
 
 	table->files = kmalloc(sizeof(struct filehandle *) * OPEN_MAX);
 	if (table->files == NULL) {
-		kfree(table);
-		return NULL;
+		panic("filetable_bootstrap failed.\n");
+		return;
 	}
 
 	/* Initialze contents of table */
@@ -83,24 +85,20 @@ struct filetable *filetable_create()
 
 	table->files[0] = filehandle_create(O_RDONLY);	/* STDIN */
 	if (table->files[0] == NULL) {
-		kfree(table->files);
-		kfree(table);
-		return NULL;
+		panic("filetable_bootstrap failed.\n");
+		return;
 	}
 
 	table->files[1] = filehandle_create(O_WRONLY);	/* STDOUT */
 	if (table->files[1] == NULL) {
-		filehandle_cleanup(table->files[0]);
-		kfree(table->files);
-		kfree(table);
+		panic("filetable_bootstrap failed.\n");
+		return;
 	}
 
 	table->files[2] = filehandle_create(O_WRONLY);	/* STDERR */
 	if (table->files[2] == NULL) {
-		filehandle_cleanup(table->files[0]);
-		filehandle_cleanup(table->files[1]);
-		kfree(table->files);
-		kfree(table);
+		panic("filetable_bootstrap failed.\n");
+		return;
 	}
 
 	char con[] = "con:";
@@ -118,24 +116,37 @@ struct filetable *filetable_create()
 	conpath = kstrdup(con);
 	KASSERT(conpath != NULL);
 	res = vfs_open(conpath, O_RDONLY, 0, &table->files[0]->vn);
-	KASSERT(res == 0);
+	if (res) {
+		panic("filetable_bootstrap failed.\n");
+		return;
+	}
 	kfree(conpath);
 
 	conpath = kstrdup(con);
 	KASSERT(conpath != NULL);
 	res = vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[1]->vn);
-	KASSERT(res == 0);
+	if (res) {
+		panic("filetable_bootstrap failed.\n");
+		return;
+	}
 	kfree(conpath);
 
 	conpath = kstrdup(con);
 	KASSERT(conpath != NULL);
 	res = vfs_open(kstrdup(con), O_WRONLY, 0, &table->files[2]->vn);
-	KASSERT(res == 0);
+	if (res) {
+		panic("filetable_bootstrap failed.\n");
+		return;
+	}
 	kfree(conpath);
 
 	table->lk = lock_create("file table");
+	if (table->lk == NULL) {
+		panic("filetable_bootstrap failed.\n");
+		return;
+	}
 
-	return table;
+	kproc->p_filetable = table;
 }
 
 int filetable_insert(struct filehandle *file, struct filetable *table)

@@ -184,11 +184,6 @@ void proc_destroy(struct proc *proc)
 	KASSERT(proc->p_numthreads == 0);
 	spinlock_cleanup(&proc->p_lock);
 
-	/*
-	 * This field is not NULL for user processes. The kernel process does
-	 * not have a file table set on it so we do not what to attempt to
-	 * destroy it.
-	 */
 	if (proc->p_filetable) {
 		filetable_destroy(proc->p_filetable);
 		proc->p_filetable = NULL;
@@ -274,7 +269,7 @@ struct proc *proc_create_runprogram(const char *name)
 	 * create file tables in this function instead of proc_create or
 	 * proc_bootstrap
 	 */
-	newproc->p_filetable = filetable_create();
+	newproc->p_filetable = filetable_createcopy(kproc->p_filetable);
 	if (newproc->p_filetable == NULL) {
 		proc_destroy(newproc);
 		return NULL;

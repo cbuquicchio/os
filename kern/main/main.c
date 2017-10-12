@@ -41,6 +41,7 @@
 #include <thread.h>
 #include <proc.h>
 #include <proctable.h>
+#include <filetable.h>
 #include <current.h>
 #include <synch.h>
 #include <vm.h>
@@ -124,6 +125,11 @@ void boot(void)
 
 	/* Late phase of initialization. */
 	vm_bootstrap();
+	/*
+	 * This must come after device come online because we attempt to
+	 * open the console.
+	 */
+	filetable_bootstrap();
 	kprintf_bootstrap();
 	thread_start_cpus();
 	test161_bootstrap();
