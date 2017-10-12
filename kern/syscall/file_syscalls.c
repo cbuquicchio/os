@@ -21,43 +21,40 @@ int sys_open(userptr_t filename, int flags, int *retval)
 	KASSERT(curproc->p_filetable != NULL);
 
 	int res;
-	char *kfname;
+	char *kfilename;
 	struct filehandle *fh;
 
-	if (filename == NULL)
-		return EFAULT;
-
-	kfname = kmalloc(sizeof(*kfname) * PATH_MAX);
-	if (kfname == NULL) {
+	kfilename = kmalloc(sizeof(*kfilename) * PATH_MAX);
+	if (kfilename == NULL)
 		return ENOMEM;
-	}
 
-	res = copyinstr(filename, kfname, PATH_MAX, NULL);
+	res = copyinstr(filename, kfilename, PATH_MAX, NULL);
 	if (res) {
-		kfree(kfname);
+		kfree(kfilename);
 		return res;
 	}
 
 	fh = filehandle_create(flags);
 	if (fh == NULL) {
-		kfree(kfname);
+		kfree(kfilename);
 		return -1;
 	}
 
-	res = vfs_open(kfname, flags, 0, &fh->vn);
+	res = vfs_open(kfilename, flags, 0, &fh->vn);
 	if (res) {
 		filehandle_cleanup(fh);
-		kfree(kfname);
+		kfree(kfilename);
 		return res;
 	}
 
 	res = filetable_insert(fh, curproc->p_filetable);
 	if (res < 0) {
 		filehandle_cleanup(fh);
-		kfree(kfname);
+		kfree(kfilename);
 		return EMFILE;
 	}
 
+	kfree(kfilename);
 	*retval = res;
 
 	return 0;
@@ -350,6 +347,8 @@ int sys_chdir(userptr_t pathname)
 		kfree(kpathname);
 		return err;
 	}
+
+	kfree(kpathname);
 
 	return 0;
 }
