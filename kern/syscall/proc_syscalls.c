@@ -255,8 +255,8 @@ int sys_execv(userptr_t progname, userptr_t args)
 	vaddr_t stackptr;
 
 	err = setup_runprogram(kprogname, &stackptr, &entrypoint);
+	kfree(kprogname);
 	if (err) {
-		kfree(kprogname);
 		kfree(kargbuf);
 		return err;
 	}
@@ -278,12 +278,15 @@ int sys_execv(userptr_t progname, userptr_t args)
 		sofar += slen;
 	}
 
+	kfree(kargbuf);
+	if (err)
+		return err;
+
 	stackptr -= sizeof(kargv);
 	kargv[argc] = NULL;
 
 	/* Copy argv to the stack */
 	err = copyout(kargv, (userptr_t) stackptr, sizeof(kargv));
-	kfree(kargbuf);
 	if (err)
 		return err;
 
