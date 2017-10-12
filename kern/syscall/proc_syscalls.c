@@ -22,6 +22,7 @@ static void enter_forked_proc(void *tf, unsigned long _)
 	(void)_;
 
 	struct trapframe stack = *(struct trapframe *)tf;
+	kfree(tf);
 
 	stack.tf_v0 = 0;
 	stack.tf_a3 = 0;

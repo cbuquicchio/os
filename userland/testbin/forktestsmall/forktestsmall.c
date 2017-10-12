@@ -10,7 +10,6 @@ int main()
 {
 	int pid;
 	int tmp = 10;
-	int x;
 
 	pid = fork();
 	if (pid < 0) {
@@ -20,9 +19,11 @@ int main()
 	if (pid == 0) {
 		if (tmp != 10)
 			err(1, "Failed! process stack broken.");
-	} else
-		waitpid(pid, &x, 0);
-	success(TEST161_SUCCESS, SECRET, "/testbin/forktest");
+	} else {
+		int _;
+		waitpid(pid, &_, 0);
+		success(TEST161_SUCCESS, SECRET, "/testbin/forktest");
+	}
 
 	return 0;
 }
